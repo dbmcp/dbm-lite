@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 backend/bin/
 backend/data/
 backend/dbm-lite.db
@@ -17,6 +18,8 @@ logs/
 .vscode/
 *.swp
 
+=======
+>>>>>>> 7776ab00e033b05989db5255789925ba15c82e6b
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -32,6 +35,7 @@ logs/
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+<<<<<<< HEAD
 
 # 环境配置
 .env
@@ -41,3 +45,5 @@ logs/
 # IDE 配置
 .vscode/
 .idea/
+=======
+>>>>>>> 7776ab00e033b05989db5255789925ba15c82e6b
