@@ -220,4 +220,4 @@ dbm-lite/
 - Apache License 2.0 — see [LICENSE](LICENSE)
 - 木兰宽松许可证第2版 — see [LICENSE-MulanPSL2](LICENSE-MulanPSL2)
 
-© 2026 DB老王
+© 2026 DBlaowang
