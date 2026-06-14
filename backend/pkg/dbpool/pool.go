@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package dbpool
@@ -23,8 +23,8 @@ import (
 
 // ConnPool 全局连接池管理器
 type ConnPool struct {
-	pool   map[string]*sql.DB
-	mu     sync.RWMutex
+	pool map[string]*sql.DB
+	mu   sync.RWMutex
 }
 
 var (
@@ -141,4 +141,3 @@ func (p *ConnPool) TestConnection(ds *model.Datasource, password string) error {
 	db.SetConnMaxLifetime(5 * time.Second)
 	return db.Ping()
 }
-

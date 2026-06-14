@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package service
@@ -152,11 +152,11 @@ func (s *ServerService) EnsureByHost(host string, createdBy string) (*model.Serv
 		return &existing, nil
 	}
 	srv := &model.Server{
-		Name:     "Server-" + host,
-		Host:     host,
-		Port:     22,
-		OS:       "Linux",
-		Status:   model.StatusActive,
+		Name:   "Server-" + host,
+		Host:   host,
+		Port:   22,
+		OS:     "Linux",
+		Status: model.StatusActive,
 	}
 	err = s.Create(srv, createdBy)
 	if err != nil {
@@ -208,4 +208,3 @@ func (s *ServerService) Update(id string, updates map[string]interface{}) error 
 func (s *ServerService) Delete(id string) error {
 	return database.DB.Where("server_id = ?", id).Delete(&model.Server{}).Error
 }
-

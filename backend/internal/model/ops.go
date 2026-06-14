@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package model
@@ -15,7 +15,7 @@ type BackupPolicy struct {
 	Name         string    `gorm:"column:name;size:128;not null" json:"name"`
 	DatasourceID string    `gorm:"column:datasource_id;size:64;index" json:"datasourceId"`
 	BackupType   string    `gorm:"column:backup_type;size:32" json:"backupType"` // full | incremental
-	Strategy     string    `gorm:"column:strategy;size:32" json:"strategy"`       // manual | cron
+	Strategy     string    `gorm:"column:strategy;size:32" json:"strategy"`      // manual | cron
 	CronExpr     string    `gorm:"column:cron_expr;size:128" json:"cronExpr"`
 	KeepCount    int       `gorm:"column:keep_count;default:7" json:"keepCount"`
 	StoragePath  string    `gorm:"column:storage_path;size:512" json:"storagePath"`
@@ -28,16 +28,16 @@ type BackupPolicy struct {
 func (BackupPolicy) TableName() string { return "backup_policies" }
 
 type BackupRecord struct {
-	RecordID   string    `gorm:"column:record_id;primaryKey;size:64" json:"recordId"`
-	PolicyID   string    `gorm:"column:policy_id;size:64;index" json:"policyId"`
-	BackupType string    `gorm:"column:backup_type;size:32" json:"backupType"`
-	FileName   string    `gorm:"column:file_name;size:256" json:"fileName"`
-	SizeMB     float64   `gorm:"column:size_mb" json:"sizeMb"`
-	DurationSec int      `gorm:"column:duration_sec" json:"durationSec"`
-	Status     string    `gorm:"column:status;size:32" json:"status"`
-	Remark     string    `gorm:"column:remark;size:512" json:"remark"`
-	StartedAt  time.Time `gorm:"column:started_at" json:"startedAt"`
-	FinishedAt *time.Time `gorm:"column:finished_at" json:"finishedAt,omitempty"`
+	RecordID    string     `gorm:"column:record_id;primaryKey;size:64" json:"recordId"`
+	PolicyID    string     `gorm:"column:policy_id;size:64;index" json:"policyId"`
+	BackupType  string     `gorm:"column:backup_type;size:32" json:"backupType"`
+	FileName    string     `gorm:"column:file_name;size:256" json:"fileName"`
+	SizeMB      float64    `gorm:"column:size_mb" json:"sizeMb"`
+	DurationSec int        `gorm:"column:duration_sec" json:"durationSec"`
+	Status      string     `gorm:"column:status;size:32" json:"status"`
+	Remark      string     `gorm:"column:remark;size:512" json:"remark"`
+	StartedAt   time.Time  `gorm:"column:started_at" json:"startedAt"`
+	FinishedAt  *time.Time `gorm:"column:finished_at" json:"finishedAt,omitempty"`
 }
 
 func (BackupRecord) TableName() string { return "backup_records" }
@@ -102,15 +102,15 @@ type SlowLog struct {
 func (SlowLog) TableName() string { return "slow_logs" }
 
 type HaCluster struct {
-	ClusterID  string    `gorm:"column:cluster_id;primaryKey;size:64" json:"clusterId"`
-	Name       string    `gorm:"column:name;size:128;not null" json:"name"`
-	ClusterType string   `gorm:"column:cluster_type;size:32" json:"clusterType"` // mgr | replication
-	BusinessID string    `gorm:"column:business_id;size:64;index" json:"businessId"`
-	Status     string    `gorm:"column:status;size:32" json:"status"`
-	PrimaryID  string    `gorm:"column:primary_id;size:64" json:"primaryId"`
-	Detail     string    `gorm:"column:detail;type:text" json:"detail"`
-	CreatedAt  time.Time `gorm:"column:created_at" json:"createdAt"`
-	UpdatedAt  time.Time `gorm:"column:updated_at" json:"updatedAt"`
+	ClusterID   string    `gorm:"column:cluster_id;primaryKey;size:64" json:"clusterId"`
+	Name        string    `gorm:"column:name;size:128;not null" json:"name"`
+	ClusterType string    `gorm:"column:cluster_type;size:32" json:"clusterType"` // mgr | replication
+	BusinessID  string    `gorm:"column:business_id;size:64;index" json:"businessId"`
+	Status      string    `gorm:"column:status;size:32" json:"status"`
+	PrimaryID   string    `gorm:"column:primary_id;size:64" json:"primaryId"`
+	Detail      string    `gorm:"column:detail;type:text" json:"detail"`
+	CreatedAt   time.Time `gorm:"column:created_at" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at" json:"updatedAt"`
 }
 
 func (HaCluster) TableName() string { return "ha_clusters" }
@@ -181,4 +181,3 @@ type SystemSetting struct {
 }
 
 func (SystemSetting) TableName() string { return "system_settings" }
-

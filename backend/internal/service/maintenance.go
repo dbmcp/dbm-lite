@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package service
@@ -81,10 +81,10 @@ func (s *BackupService) TriggerBackup(policyId, policyName, backupType string) (
 		time.Sleep(1 * time.Second)
 		finishedAt := time.Now()
 		database.DB.Model(&model.BackupRecord{}).Where("record_id = ?", rid).Updates(map[string]interface{}{
-			"status":      model.StatusSuccess,
-			"size_mb":     10.5,
+			"status":       model.StatusSuccess,
+			"size_mb":      10.5,
 			"duration_sec": 15,
-			"finished_at": &finishedAt,
+			"finished_at":  &finishedAt,
 		})
 	}(record.RecordID)
 	return record, nil
@@ -368,4 +368,3 @@ func (s *CapacityService) Analyze(datasourceId, dbName string) (interface{}, err
 	sqlSvc := NewSQLService()
 	return sqlSvc.AnalyzeCapacity(ds, dbName)
 }
-

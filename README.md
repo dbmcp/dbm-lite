@@ -2,7 +2,7 @@
 <!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
-@Author: DBA老王
+@Author: DB老王
 @License: Apache-2.0 OR MulanPSL-2.0
 -->
 
@@ -43,7 +43,7 @@
 │  │  └──────────┘        │                                │  │  │
 │  │                       └────────────────────────────────┘  │  │
 │  └──────────────────────────────────────────────────────────┘  │
-│                                         DBM-Lite v0.1.0 © DBA老王 │
+│                                         DBM-Lite v0.1.0 © DB老王 │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -69,7 +69,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/DBA老王/dbm-lite
+git clone https://github.com/DB老王/dbm-lite
 cd dbm-lite
 
 # 一键启动（自动清理端口、编译后端、启动前端）
@@ -204,7 +204,7 @@ dbm-lite/
 
 ## 👤 作者与交流
 
-- **作者：** DBA老王
+- **作者：** DB老王
 - **交流微信号：** `db00db00db00`（仅用于技术交流）
 
 ## 🗺 版本路线图
@@ -222,4 +222,4 @@ dbm-lite/
 - [Apache License 2.0](LICENSE)
 - [木兰宽松许可证第2版](LICENSE-MulanPSL2)
 
-© 2026 DBA老王
+© 2026 DB老王

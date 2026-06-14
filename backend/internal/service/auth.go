@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package service
@@ -12,8 +12,8 @@ import (
 
 	"dbm-lite/config"
 	"dbm-lite/internal/database"
-	"dbm-lite/internal/model"
 	"dbm-lite/internal/dbtype"
+	"dbm-lite/internal/model"
 	"dbm-lite/pkg/crypto"
 
 	"github.com/google/uuid"
@@ -146,4 +146,3 @@ func DecryptDatasourcePassword(encPwd string) (string, error) {
 }
 
 var _ = dbtype.EncryptPassword // 保持引用防止未使用警告
-

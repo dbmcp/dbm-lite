@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package sqllint
@@ -12,13 +12,13 @@ import (
 )
 
 type ReviewResult struct {
-	IsHighRisk    bool     `json:"isHighRisk"`
-	Reasons       []string `json:"reasons"`
-	HasWhere      bool     `json:"hasWhere"`
-	IsSelect      bool     `json:"isSelect"`
-	IsDDL         bool     `json:"isDdl"`
-	IsDML         bool     `json:"isDml"`
-	Suggestions   []string `json:"suggestions"`
+	IsHighRisk  bool     `json:"isHighRisk"`
+	Reasons     []string `json:"reasons"`
+	HasWhere    bool     `json:"hasWhere"`
+	IsSelect    bool     `json:"isSelect"`
+	IsDDL       bool     `json:"isDdl"`
+	IsDML       bool     `json:"isDml"`
+	Suggestions []string `json:"suggestions"`
 }
 
 var (
@@ -73,4 +73,3 @@ func Review(sql string) *ReviewResult {
 
 	return r
 }
-

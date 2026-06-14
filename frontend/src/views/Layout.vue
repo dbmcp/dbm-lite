@@ -1,7 +1,7 @@
 <!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
-@Author: DBA老王
+@Author: DB老王
 @License: Apache-2.0 OR MulanPSL-2.0
 -->
 <template>
@@ -167,7 +167,7 @@
       </el-main>
 
       <div class="layout-footer">
-        DBM-Lite v0.1.0 © DBA老王
+        DBM-Lite v0.1.0 © DB老王
       </div>
     </el-container>
   </el-container>

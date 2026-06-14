@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package handler
@@ -369,13 +369,13 @@ func (h *DatasourceHandler) GetDetail(c *gin.Context) {
 
 	// 返回详情 + 最近测试信息
 	middleware.OK(c, gin.H{
-		"datasource":    ds,
-		"connStatus":    ds.ConnStatus,
-		"lastTestAt":    ds.LastConnTestAt,
-		"latencyMs":     ds.ConnLatencyMs,
-		"version":       ds.Version,
-		"passwordSet":   ds.HasPassword(),
-		"connectionOK":  ds.IsConnectionOK(),
+		"datasource":   ds,
+		"connStatus":   ds.ConnStatus,
+		"lastTestAt":   ds.LastConnTestAt,
+		"latencyMs":    ds.ConnLatencyMs,
+		"version":      ds.Version,
+		"passwordSet":  ds.HasPassword(),
+		"connectionOK": ds.IsConnectionOK(),
 	})
 }
 
@@ -492,22 +492,22 @@ func (h *DatasourceHandler) AllSimple(c *gin.Context) {
 			}
 		}
 		result = append(result, map[string]interface{}{
-			"id":           ds.DatasourceID,
-			"name":         ds.Name,
-			"dbType":       ds.DBType,
-			"host":         ds.Host,
-			"port":         ds.Port,
-			"address":      addr,
-			"env":          ds.Env,
-			"defaultDb":    ds.DefaultDB,
-			"connStatus":   ds.ConnStatus,
-			"colorLabel":   ds.ColorLabel,
-			"latencyMs":    ds.ConnLatencyMs,
-			"version":      ds.Version,
-			"lastTestAt":   ds.LastConnTestAt,
-			"readOnly":     ds.ReadOnly,
-			"username":     ds.Username,
-			"tags":         ds.Tags,
+			"id":         ds.DatasourceID,
+			"name":       ds.Name,
+			"dbType":     ds.DBType,
+			"host":       ds.Host,
+			"port":       ds.Port,
+			"address":    addr,
+			"env":        ds.Env,
+			"defaultDb":  ds.DefaultDB,
+			"connStatus": ds.ConnStatus,
+			"colorLabel": ds.ColorLabel,
+			"latencyMs":  ds.ConnLatencyMs,
+			"version":    ds.Version,
+			"lastTestAt": ds.LastConnTestAt,
+			"readOnly":   ds.ReadOnly,
+			"username":   ds.Username,
+			"tags":       ds.Tags,
 		})
 	}
 	middleware.OK(c, result)

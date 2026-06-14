@@ -1,7 +1,7 @@
 <!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
-@Author: DBA老王
+@Author: DB老王
 @License: Apache-2.0 OR MulanPSL-2.0
 -->
 <template>
@@ -53,7 +53,7 @@
           <span>v0.1.0</span>
         </el-form-item>
         <el-form-item label="作者">
-          <span>DBA老王</span>
+          <span>DB老王</span>
         </el-form-item>
         <el-form-item label="开源协议">
           <span>Apache License 2.0 / 木兰宽松许可证第2版</span>
@@ -68,12 +68,12 @@
       <div style="line-height:1.8;color:#303133;">
         <p style="margin:0 0 8px 0;"><b>项目全称：</b>DBM-Lite 轻量级全域数据库管控平台</p>
         <p style="margin:0 0 8px 0;"><b>版本号：</b>v0.1.0</p>
-        <p style="margin:0 0 8px 0;"><b>作者：</b>DBA老王</p>
+        <p style="margin:0 0 8px 0;"><b>作者：</b>DB老王</p>
         <p style="margin:0 0 8px 0;"><b>协议：</b>本软件采用 <code>Apache-2.0 OR MulanPSL-2.0</code> 双许可模式，使用者可自由选择其中一种协议使用</p>
         <p style="margin:0 0 8px 0;"><b>技术栈：</b>Go + Gin + GORM + SQLite · Vue3 + Element Plus</p>
         <p style="margin:0 0 8px 0;"><b>发布日期：</b>2026</p>
         <el-divider style="margin:12px 0;" />
-        <p style="margin:0;color:#909399;font-size:12px;">© 2026 DBA老王 版权所有</p>
+        <p style="margin:0;color:#909399;font-size:12px;">© 2026 DB老王 版权所有</p>
       </div>
     </el-dialog>
   </div>

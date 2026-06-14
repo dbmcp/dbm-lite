@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package main
@@ -109,94 +109,94 @@ func main() {
 
 		// 数据源管理
 		ds := api.Group("/datasources")
-	ds.Use(middleware.AuthRequired())
-	{
-		ds.POST("", dsH.Create)
-		ds.GET("", dsH.List)
-		ds.GET("/all", dsH.AllSimple)
-		ds.GET("/simple", dsH.AllSimple)
-		ds.GET("/stats", dsH.Stats)
-		ds.GET("/:id", dsH.Get)
-		ds.GET("/:id/detail", dsH.GetDetail)
-		ds.PUT("/:id", dsH.Update)
-		ds.DELETE("/:id", dsH.Delete)
-		ds.POST("/:id/copy", dsH.Copy)
-		ds.POST("/:id/test", dsH.TestConnectionById)
-		ds.POST("/testConnection", dsH.TestConnectionFromForm)
-		ds.GET("/:id/databases", sqlH.GetDatabases)
-		ds.GET("/:id/tables", sqlH.GetTables)
-		ds.GET("/:id/columns", sqlH.GetColumns)
-		ds.GET("/:id/tree", sqlH.GetFullTree)
-	}
+		ds.Use(middleware.AuthRequired())
+		{
+			ds.POST("", dsH.Create)
+			ds.GET("", dsH.List)
+			ds.GET("/all", dsH.AllSimple)
+			ds.GET("/simple", dsH.AllSimple)
+			ds.GET("/stats", dsH.Stats)
+			ds.GET("/:id", dsH.Get)
+			ds.GET("/:id/detail", dsH.GetDetail)
+			ds.PUT("/:id", dsH.Update)
+			ds.DELETE("/:id", dsH.Delete)
+			ds.POST("/:id/copy", dsH.Copy)
+			ds.POST("/:id/test", dsH.TestConnectionById)
+			ds.POST("/testConnection", dsH.TestConnectionFromForm)
+			ds.GET("/:id/databases", sqlH.GetDatabases)
+			ds.GET("/:id/tables", sqlH.GetTables)
+			ds.GET("/:id/columns", sqlH.GetColumns)
+			ds.GET("/:id/tree", sqlH.GetFullTree)
+		}
 
 		// 项目和业务管理
-	proj := api.Group("/projects")
-	proj.Use(middleware.AuthRequired())
-	{
-		proj.POST("", bizH.CreateProject)
-		proj.GET("", bizH.ListProjects)
-		proj.GET("/all", bizH.AllProjects)
-		proj.PUT("/:id", bizH.UpdateProject)
-		proj.DELETE("/:id", bizH.DeleteProject)
-
-		// 项目作用域下的服务器
-		projSrv := proj.Group("/:id/servers")
+		proj := api.Group("/projects")
+		proj.Use(middleware.AuthRequired())
 		{
-			projSrv.GET("", srvH.ListByProject)
-			projSrv.POST("", srvH.CreateByProject)
-			projSrv.PUT("/:serverid", srvH.Update)
-			projSrv.DELETE("/:serverid", srvH.Delete)
-			projSrv.POST("/testConnection", srvH.TestConnect)
+			proj.POST("", bizH.CreateProject)
+			proj.GET("", bizH.ListProjects)
+			proj.GET("/all", bizH.AllProjects)
+			proj.PUT("/:id", bizH.UpdateProject)
+			proj.DELETE("/:id", bizH.DeleteProject)
+
+			// 项目作用域下的服务器
+			projSrv := proj.Group("/:id/servers")
+			{
+				projSrv.GET("", srvH.ListByProject)
+				projSrv.POST("", srvH.CreateByProject)
+				projSrv.PUT("/:serverid", srvH.Update)
+				projSrv.DELETE("/:serverid", srvH.Delete)
+				projSrv.POST("/testConnection", srvH.TestConnect)
+			}
+
+			// 项目作用域下的业务
+			projBiz := proj.Group("/:id/businesses")
+			{
+				projBiz.GET("", bizH.ListBusinessesByProject)
+				projBiz.POST("", bizH.CreateBusinessByProject)
+			}
+		}
+		biz := api.Group("/businesses")
+		biz.Use(middleware.AuthRequired())
+		{
+			biz.POST("", bizH.CreateBusiness)
+			biz.GET("", bizH.ListBusinesses)
+			biz.GET("/all", bizH.AllBusinesses)
+			biz.PUT("/:id", bizH.UpdateBusiness)
+			biz.DELETE("/:id", bizH.DeleteBusiness)
 		}
 
-		// 项目作用域下的业务
-		projBiz := proj.Group("/:id/businesses")
+		// 服务器管理
+		srv := api.Group("/servers")
+		srv.Use(middleware.AuthRequired())
 		{
-			projBiz.GET("", bizH.ListBusinessesByProject)
-			projBiz.POST("", bizH.CreateBusinessByProject)
+			srv.POST("", srvH.Create)
+			srv.GET("", srvH.List)
+			srv.GET("/all", srvH.All)
+			srv.PUT("/:id", srvH.Update)
+			srv.DELETE("/:id", srvH.Delete)
+			srv.POST("/:id/test", srvH.TestConnect)
+		}
+
+		// 插件管理
+		plg := api.Group("/plugins")
+		plg.Use(middleware.AuthRequired())
+		{
+			plg.POST("", opsH.CreatePlugin)
+			plg.GET("", opsH.ListPlugins)
+			plg.PUT("/:id", opsH.UpdatePlugin)
+			plg.DELETE("/:id", opsH.DeletePlugin)
+		}
+
+		// 审计日志
+		audit := api.Group("/audit")
+		audit.Use(middleware.AuthRequired())
+		{
+			audit.GET("", auditH.List)
+			audit.GET("/logs", auditH.List)
+			audit.GET("/stats", auditH.Stats)
 		}
 	}
-	biz := api.Group("/businesses")
-	biz.Use(middleware.AuthRequired())
-	{
-		biz.POST("", bizH.CreateBusiness)
-		biz.GET("", bizH.ListBusinesses)
-		biz.GET("/all", bizH.AllBusinesses)
-		biz.PUT("/:id", bizH.UpdateBusiness)
-		biz.DELETE("/:id", bizH.DeleteBusiness)
-	}
-
-	// 服务器管理
-	srv := api.Group("/servers")
-	srv.Use(middleware.AuthRequired())
-	{
-		srv.POST("", srvH.Create)
-		srv.GET("", srvH.List)
-		srv.GET("/all", srvH.All)
-		srv.PUT("/:id", srvH.Update)
-		srv.DELETE("/:id", srvH.Delete)
-		srv.POST("/:id/test", srvH.TestConnect)
-	}
-
-	// 插件管理
-	plg := api.Group("/plugins")
-	plg.Use(middleware.AuthRequired())
-	{
-		plg.POST("", opsH.CreatePlugin)
-		plg.GET("", opsH.ListPlugins)
-		plg.PUT("/:id", opsH.UpdatePlugin)
-		plg.DELETE("/:id", opsH.DeletePlugin)
-	}
-
-	// 审计日志
-	audit := api.Group("/audit")
-	audit.Use(middleware.AuthRequired())
-	{
-		audit.GET("", auditH.List)
-		audit.GET("/logs", auditH.List)
-		audit.GET("/stats", auditH.Stats)
-	}
-}
 
 	log.Printf("dbm-lite server starting on :%s", config.App.ServerPort)
 	if err := r.Run(":" + config.App.ServerPort); err != nil {
@@ -261,4 +261,3 @@ func setupStaticRoutes(r *gin.Engine) {
 		c.File(filepath.Join(staticDir, "index.html"))
 	})
 }
-

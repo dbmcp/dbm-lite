@@ -1,7 +1,7 @@
 /*
  * @Project: DBM-Lite 轻量级全域数据库管控平台
  * @Version: v0.1.0
- * @Author: DBA老王
+ * @Author: DB老王
  * @License: Apache-2.0 OR MulanPSL-2.0
  */
 package handler
@@ -309,7 +309,7 @@ type MaintenanceHandler struct {
 	pluginSvc  *service.PluginService
 	permSvc    *service.DBPermissionService
 	capSvc     *service.CapacityService
-	auditSvc    *service.AuditService
+	auditSvc   *service.AuditService
 }
 
 func NewMaintenanceHandler() *MaintenanceHandler {
@@ -632,9 +632,9 @@ func (h *MaintenanceHandler) AnalyzeCapacity(c *gin.Context) {
 	dbName := c.Query("database")
 	if datasourceId == "" {
 		middleware.OK(c, gin.H{
-			"summary": gin.H{"totalDatabases": 0, "totalTables": 0, "totalSizeMB": 0, "totalRows": 0},
+			"summary":   gin.H{"totalDatabases": 0, "totalTables": 0, "totalSizeMB": 0, "totalRows": 0},
 			"databases": []interface{}{},
-			"message": "请指定 datasourceId 参数以查询容量信息",
+			"message":   "请指定 datasourceId 参数以查询容量信息",
 		})
 		return
 	}
@@ -761,4 +761,3 @@ func (h *BusinessHandler) CreateBusinessByProject(c *gin.Context) {
 	h.auditSvc.Log(userId, username, middleware.GetClientIP(c), model.ModuleBusiness, "create", b.BusinessID, "项目中创建业务: "+b.Name, model.AuditResultSuccess, "")
 	middleware.OK(c, b)
 }
-
