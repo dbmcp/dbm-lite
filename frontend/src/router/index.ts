@@ -11,7 +11,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('@/views/Layout.vue'),
-    redirect: '/sql/workbench',
+    redirect: '/dashboard',
     children: [
       {
         path: 'dashboard',
@@ -91,7 +91,7 @@ const routes: RouteRecordRaw[] = [
       }
     ]
   },
-  { path: '/:pathMatch(.*)*', redirect: '/sql/workbench' }
+  { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
 ]
 
 const router = createRouter({
@@ -110,7 +110,7 @@ router.beforeEach((to, from, next) => {
     return
   }
   if (to.meta.adminOnly && !userStore.isAdmin) {
-    next('/sql/workbench')
+    next('/dashboard')
     return
   }
   next()

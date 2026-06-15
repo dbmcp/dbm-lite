@@ -29,7 +29,7 @@
             </el-menu-item>
           </template>
 
-          <el-menu-divider style="margin:6px 0;border-color:#1f2d3d;" />
+          <div style="height:1px;background:#1f2d3d;margin:6px 0;"></div>
 
           <template v-for="item in currentDomainMenu" :key="'d-' + item.index">
             <el-menu-item v-if="!item.visible || item.visible()" :index="item.index">
@@ -40,7 +40,7 @@
             </el-menu-item>
           </template>
 
-          <el-menu-divider style="margin:6px 0;border-color:#1f2d3d;" />
+          <div style="height:1px;background:#1f2d3d;margin:6px 0;"></div>
 
           <template v-for="item in bottomMenu" :key="'btm-' + item.index">
             <el-menu-item v-if="!item.visible || item.visible()" :index="item.index">
@@ -80,32 +80,19 @@
               </el-menu-item>
             </template>
 
-            <el-sub-menu :index="'ops-group'" :popper-class="''">
-              <template #title>
-                <el-icon :color="opsColor"><EditPen /></el-icon>
-                <span style="margin-left:6px;color:#303133;">DB操作管控域</span>
-              </template>
-              <el-menu-item v-for="item in opsDomainMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-ops-' + item.index" :index="item.index">
-                <el-icon :color="opsColor"><component :is="item.icon" /></el-icon>
+            <template v-for="item in currentDomainMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-domain-' + item.index">
+              <el-menu-item :index="item.index">
+                <el-icon :color="currentDomainColor"><component :is="item.icon" /></el-icon>
+                <span :style="{ color: currentDomainColor, marginLeft: '6px' }">{{ item.title }}</span>
+              </el-menu-item>
+            </template>
+
+            <template v-for="item in bottomMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-btm-' + item.index">
+              <el-menu-item :index="item.index">
+                <el-icon><component :is="item.icon" /></el-icon>
                 <span style="margin-left:6px;">{{ item.title }}</span>
               </el-menu-item>
-            </el-sub-menu>
-
-            <el-sub-menu :index="'ops2-group'">
-              <template #title>
-                <el-icon :color="ops2Color"><Coin /></el-icon>
-                <span style="margin-left:6px;color:#303133;">DB基础运维域</span>
-              </template>
-              <el-menu-item v-for="item in ops2DomainMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-ops2-' + item.index" :index="item.index">
-                <el-icon :color="ops2Color"><component :is="item.icon" /></el-icon>
-                <span style="margin-left:6px;">{{ item.title }}</span>
-              </el-menu-item>
-            </el-sub-menu>
-
-            <el-menu-item v-for="item in bottomMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-btm-' + item.index" :index="item.index">
-              <el-icon><component :is="item.icon" /></el-icon>
-              <span style="margin-left:6px;">{{ item.title }}</span>
-            </el-menu-item>
+            </template>
           </el-menu>
         </div>
 
@@ -200,7 +187,21 @@ const layoutMode = ref<'side' | 'top'>((localStorage.getItem(LAYOUT_KEY) as 'sid
 const opsColor = '#409eff'
 const ops2Color = '#2e6ba8'
 
-const currentDomain = ref<DomainType>((localStorage.getItem(DOMAIN_KEY) as DomainType) || 'ops')
+const domainDefaultPage: Record<DomainType, string> = {
+  ops: '/sql/workbench',
+  ops2: '/db-lifecycle'
+}
+
+function pickInitialDomain(): DomainType {
+  const saved = localStorage.getItem(DOMAIN_KEY) as DomainType
+  if (saved === 'ops' || saved === 'ops2') return saved
+  const last = localStorage.getItem(LAST_PAGE_KEY)
+  if (last === '/sql/workbench' || last === '/datasources' || last === '/db-users') return 'ops'
+  if (last === '/db-lifecycle' || last === '/servers' || last === '/plugins') return 'ops2'
+  return 'ops'
+}
+
+const currentDomain = ref<DomainType>(pickInitialDomain())
 
 const domainConfig = {
   ops: { name: 'DB操作管控域', color: opsColor },
@@ -244,6 +245,13 @@ const currentDomainMenu = computed<MenuItem[]>(() => {
   return currentDomain.value === 'ops' ? opsDomainMenu : ops2DomainMenu
 })
 
+function pathToDomain(path: string): DomainType | null {
+  if (!path) return null
+  if (path.startsWith('/sql') || path === '/datasources' || path.startsWith('/datasource') || path === '/db-users') return 'ops'
+  if (path === '/db-lifecycle' || path === '/servers' || path === '/plugins') return 'ops2'
+  return null
+}
+
 watch(layoutMode, (v) => localStorage.setItem(LAYOUT_KEY, v))
 watch(currentDomain, (v) => {
   localStorage.setItem(DOMAIN_KEY, v)
@@ -253,8 +261,11 @@ watch(currentDomain, (v) => {
 watch(
   () => route.path,
   (newPath) => {
-    if (newPath && newPath !== '/login' && newPath !== '/') {
-      localStorage.setItem(LAST_PAGE_KEY, newPath)
+    if (!newPath || newPath === '/login' || newPath === '/') return
+    localStorage.setItem(LAST_PAGE_KEY, newPath)
+    const d = pathToDomain(newPath)
+    if (d && d !== currentDomain.value) {
+      currentDomain.value = d
     }
   }
 )
@@ -266,10 +277,10 @@ function toggleLayout() {
 function handleDomainCommand(cmd: string) {
   if (cmd === 'ops') {
     currentDomain.value = 'ops'
-    router.push('/sql/workbench')
+    router.push(domainDefaultPage.ops)
   } else if (cmd === 'ops2') {
     currentDomain.value = 'ops2'
-    router.push('/db-lifecycle')
+    router.push(domainDefaultPage.ops2)
   }
 }
 
@@ -295,6 +306,8 @@ onMounted(() => {
     const currentPath = route.path
     if (currentPath === '/' || currentPath === '' || currentPath === '/login') {
       if (lastPage && lastPage !== '/login' && lastPage !== '/') {
+        const d = pathToDomain(lastPage)
+        if (d) currentDomain.value = d
         router.replace(lastPage)
       } else {
         router.replace('/dashboard')

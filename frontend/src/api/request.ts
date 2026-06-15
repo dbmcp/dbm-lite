@@ -26,6 +26,16 @@ interface ApiResponse<T = any> {
   data: T
 }
 
+interface UnifiedResponse<T = any> {
+  success?: boolean
+  code?: number
+  message?: string
+  data?: T
+  total?: number
+  current?: number
+  pageSize?: number
+}
+
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 30000
@@ -44,11 +54,25 @@ service.interceptors.request.use(
 )
 
 service.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse>) => {
+  (response: AxiosResponse<UnifiedResponse>) => {
     const body = response.data
-    if (body && typeof body === 'object' && 'code' in body) {
+    if (!body || typeof body !== 'object') {
+      return body as any
+    }
+
+    // V2格式：success/data/message
+    if ('success' in body) {
+      if (body.success) {
+        return body.data as any
+      }
+      ElMessage.error(body.message || '请求失败')
+      return Promise.reject(body)
+    }
+
+    // V1格式：code/message/data
+    if ('code' in body) {
       if (body.code === 0) {
-        return body.data
+        return body.data as any
       }
       if (body.code === 40101 || body.code === 40102 || body.code === 40103) {
         clearAuth()
@@ -59,6 +83,7 @@ service.interceptors.response.use(
       ElMessage.error(body.message || '请求失败')
       return Promise.reject(body)
     }
+
     return body as any
   },
   (error) => {

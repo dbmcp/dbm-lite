@@ -107,7 +107,96 @@ func main() {
 			sql.GET("/history", sqlH.GetHistory)
 		}
 
-		// 数据源管理
+		// SQL IDE - 规范路由前缀 /api/dataquery/
+		dataquery := api.Group("/dataquery")
+		dataquery.Use(middleware.AuthRequired())
+		{
+			// SQL执行与历史
+			dataquery.POST("/sql/execute", sqlH.ExecuteSQLV2)
+			dataquery.POST("/sql/explain", sqlH.ExplainSQLV2)
+			dataquery.GET("/sqlHistory/list", sqlH.HistoryV2)
+
+			// SQL Window 管理
+			windowH := handler.NewSQLWindowHandler()
+			dataquery.GET("/windows", windowH.List)
+			dataquery.GET("/windows/recent", windowH.Recent)
+			dataquery.GET("/windows/:id", windowH.Get)
+			dataquery.POST("/windows", windowH.Create)
+			dataquery.PUT("/windows/:id", windowH.Update)
+			dataquery.DELETE("/windows/:id", windowH.Delete)
+			dataquery.POST("/windows/batchDelete", windowH.BatchDelete)
+			dataquery.POST("/windows/:id/active", windowH.SetActive)
+
+			// 数据库对象元数据
+			metaH := handler.NewMetadataHandler()
+			dataquery.GET("/datasources/:id/databases", sqlH.GetDatabasesV2)
+			dataquery.GET("/datasources/:id/tables", sqlH.GetTablesV2)
+			dataquery.GET("/datasources/:id/columns", sqlH.GetColumnsV2)
+			dataquery.GET("/datasources/:id/tree", sqlH.GetFullTreeV2)
+			dataquery.GET("/datasources/:id/table-info", sqlH.GetTableInfoV2)
+			dataquery.GET("/datasources/:id/procedures", metaH.GetProcedures)
+			dataquery.GET("/datasources/:id/triggers", metaH.GetTriggers)
+			dataquery.GET("/datasources/:id/indexes", metaH.GetIndexes)
+
+			// 表维护
+			dataquery.POST("/datasources/:id/maintenance/analyze", metaH.AnalyzeTable)
+			dataquery.POST("/datasources/:id/maintenance/check", metaH.CheckTable)
+			dataquery.POST("/datasources/:id/maintenance/optimize", metaH.OptimizeTable)
+			dataquery.POST("/datasources/:id/maintenance/repair", metaH.RepairTable)
+			dataquery.GET("/datasources/:id/maintenance/count", metaH.GetRowCount)
+
+			// 表设计
+			tableH := handler.NewTableDesignHandler()
+			dataquery.GET("/datasources/:id/table-ddl", tableH.GetTableDDL)
+
+			// 视图设计
+			viewH := handler.NewViewDesignHandler()
+			dataquery.GET("/datasources/:id/view-definition", viewH.GetViewDefinition)
+
+			// 执行计划
+			planH := handler.NewExecutePlanHandler()
+			dataquery.POST("/explain", planH.Explain)
+
+			// 数据导出
+			exportH := handler.NewDataExportHandler()
+			dataquery.GET("/datasources/:id/export/csv", exportH.ExportCSV)
+
+			// 事务管理
+			txH := handler.NewTransactionHandler()
+			dataquery.POST("/datasources/:id/transaction/begin", txH.Begin)
+			dataquery.POST("/datasources/:id/transaction/commit", txH.Commit)
+			dataquery.POST("/datasources/:id/transaction/rollback", txH.Rollback)
+			dataquery.POST("/datasources/:id/transaction/execute", txH.ExecuteBatch)
+
+			// 数据编辑器操作
+			dataquery.POST("/datasources/:id/data/insert", txH.InsertRow)
+			dataquery.POST("/datasources/:id/data/update", txH.UpdateRow)
+			dataquery.POST("/datasources/:id/data/delete", txH.DeleteRow)
+		}
+
+		// 系统配置
+		settingH := handler.NewDBSettingsHandler()
+		setting := api.Group("/settings")
+		setting.Use(middleware.AuthRequired())
+		{
+			setting.GET("/database-types", settingH.GetDatabaseTypes)
+		}
+
+		// 数据源管理 - 规范路由前缀 /api/datasource/
+		datasource := api.Group("/datasource")
+		datasource.Use(middleware.AuthRequired())
+		{
+			datasource.GET("/matrix", dsH.GetMatrix)
+			datasource.GET("/listDatasource", dsH.ListDatasourceV2)
+			datasource.POST("/createDatasource", dsH.CreateDatasourceV2)
+			datasource.POST("/testConnection", dsH.TestConnectionV2)
+			datasource.GET("/listRecentlyDatasource", dsH.ListRecentlyDatasourceV2)
+			datasource.GET("/:id/datasourceInfo", dsH.GetDatasourceInfoV2)
+			datasource.POST("/:id/updateDatasource", dsH.UpdateDatasourceV2)
+			datasource.POST("/:id/deleteDatasource", dsH.DeleteDatasourceV2)
+		}
+
+		// 数据源管理 - 旧路由 (保持兼容)
 		ds := api.Group("/datasources")
 		ds.Use(middleware.AuthRequired())
 		{
@@ -116,13 +205,15 @@ func main() {
 			ds.GET("/all", dsH.AllSimple)
 			ds.GET("/simple", dsH.AllSimple)
 			ds.GET("/stats", dsH.Stats)
+			ds.POST("/testConnection", dsH.TestConnectionFromForm)
+
+			// 带 id 参数的路由放在最后
 			ds.GET("/:id", dsH.Get)
 			ds.GET("/:id/detail", dsH.GetDetail)
 			ds.PUT("/:id", dsH.Update)
 			ds.DELETE("/:id", dsH.Delete)
 			ds.POST("/:id/copy", dsH.Copy)
 			ds.POST("/:id/test", dsH.TestConnectionById)
-			ds.POST("/testConnection", dsH.TestConnectionFromForm)
 			ds.GET("/:id/databases", sqlH.GetDatabases)
 			ds.GET("/:id/tables", sqlH.GetTables)
 			ds.GET("/:id/columns", sqlH.GetColumns)

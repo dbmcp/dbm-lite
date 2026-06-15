@@ -17,6 +17,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
 )
@@ -25,27 +26,50 @@ var DB *gorm.DB
 
 func Init() error {
 	var err error
-	DB, err = gorm.Open(sqlite.Open(config.App.DBPath), &gorm.Config{
-		Logger: gormLogger.Default.LogMode(gormLogger.Warn),
-	})
+	var sqlDB *gorm.DB
+
+	switch strings.ToLower(strings.TrimSpace(config.App.DBType)) {
+	case "mysql":
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+			config.App.MySQLUsername, config.App.MySQLPassword,
+			config.App.MySQLHost, config.App.MySQLPort, config.App.MySQLDatabase)
+		sqlDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger: gormLogger.Default.LogMode(gormLogger.Warn),
+		})
+		if err == nil {
+			if rawDB, err := sqlDB.DB(); err == nil {
+				rawDB.SetMaxOpenConns(100)
+				rawDB.SetMaxIdleConns(10)
+				rawDB.SetConnMaxLifetime(time.Hour)
+			}
+		}
+	case "sqlite", "":
+		sqlDB, err = gorm.Open(sqlite.Open(config.App.DBPath), &gorm.Config{
+			Logger: gormLogger.Default.LogMode(gormLogger.Warn),
+		})
+		if err == nil {
+			if rawDB, err := sqlDB.DB(); err == nil {
+				rawDB.SetMaxOpenConns(1)
+				rawDB.SetMaxIdleConns(1)
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported database type: %s (expected sqlite or mysql)", config.App.DBType)
+	}
+
 	if err != nil {
 		return fmt.Errorf("open database failed: %w", err)
 	}
+	DB = sqlDB
 
-	sqlDB, err := DB.DB()
-	if err == nil {
-		sqlDB.SetMaxOpenConns(1)
-		sqlDB.SetMaxIdleConns(1)
-	}
-
-	// Fix schema compatibility: old SQLite tables may have columns with
-	// incompatible types (e.g., user_id as INTEGER instead of TEXT). SQLite
-	// does not support ALTER COLUMN, so we detect and rebuild such tables.
-	if err := rebuildAuditLogTableIfNeeded(); err != nil {
-		return fmt.Errorf("rebuild audit_logs failed: %w", err)
-	}
-	if err := rebuildSQLHistoryTableIfNeeded(); err != nil {
-		return fmt.Errorf("rebuild sql_history failed: %w", err)
+	// SQLite 特定的 schema 兼容性检查
+	if strings.ToLower(strings.TrimSpace(config.App.DBType)) == "sqlite" || config.App.DBType == "" {
+		if err := rebuildAuditLogTableIfNeeded(); err != nil {
+			return fmt.Errorf("rebuild audit_logs failed: %w", err)
+		}
+		if err := rebuildSQLHistoryTableIfNeeded(); err != nil {
+			return fmt.Errorf("rebuild sql_history failed: %w", err)
+		}
 	}
 
 	// AutoMigrate all models
@@ -59,6 +83,7 @@ func Init() error {
 		&model.Datasource{},
 		&model.AuditLog{},
 		&model.SQLHistory{},
+		&model.SQLWindow{},
 		&model.BackupPolicy{},
 		&model.BackupRecord{},
 		&model.InspectTask{},
@@ -93,7 +118,7 @@ func rebuildAuditLogTableIfNeeded() error {
 	var tableExists int
 	err := DB.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='audit_logs'").Scan(&tableExists).Error
 	if err != nil {
-		// Table doesn't exist yet, nothing to fix — AutoMigrate will create it
+		// Non-SQLite driver: no PRAGMA rebuild needed
 		return nil
 	}
 	if tableExists == 0 {

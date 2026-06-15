@@ -9,13 +9,20 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
 	ServerPort    string
+	DBType        string
 	DBPath        string
+	MySQLHost     string
+	MySQLPort     int
+	MySQLUsername string
+	MySQLPassword string
+	MySQLDatabase string
 	JWTSecret     string
 	AESKey        string
 	AdminUsername string
@@ -27,9 +34,19 @@ var App Config
 
 func Load() error {
 	_ = godotenv.Load()
+	dbType := strings.ToLower(strings.TrimSpace(getEnv("DBM_LITE_DB_TYPE", "sqlite")))
+	if dbType != "mysql" {
+		dbType = "sqlite"
+	}
 	App = Config{
 		ServerPort:    getEnv("DBM_LITE_SERVER_PORT", "8080"),
+		DBType:        dbType,
 		DBPath:        getEnv("DBM_LITE_DB_PATH", "./data/dbm-lite.db"),
+		MySQLHost:     getEnv("DBM_LITE_MYSQL_HOST", "127.0.0.1"),
+		MySQLPort:     getEnvInt("DBM_LITE_MYSQL_PORT", 3306),
+		MySQLUsername: getEnv("DBM_LITE_MYSQL_USERNAME", "root"),
+		MySQLPassword: getEnv("DBM_LITE_MYSQL_PASSWORD", ""),
+		MySQLDatabase: getEnv("DBM_LITE_MYSQL_DATABASE", "dbm_lite"),
 		JWTSecret:     getEnv("DBM_LITE_JWT_SECRET", "dbm-lite-default-jwt-secret-change-me"),
 		AESKey:        getEnv("DBM_LITE_AES_KEY", "dbm-lite-aes-key-change-me-32-bytes!!"),
 		AdminUsername: getEnv("DBM_LITE_ADMIN_USERNAME", "admin"),

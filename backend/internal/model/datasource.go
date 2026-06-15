@@ -14,6 +14,8 @@ type Datasource struct {
 	DatasourceID   string     `gorm:"column:datasource_id;primaryKey;size:64" json:"datasourceId"`
 	Name           string     `gorm:"column:name;size:128;not null;index" json:"name"`
 	DBType         string     `gorm:"column:db_type;size:32;not null;index" json:"dbType"`
+	Type           string     `gorm:"column:type;size:32" json:"type"`
+	DatasourceType string     `gorm:"column:datasource_type;size:32;default:'rdbms'" json:"datasourceType"`
 	Host           string     `gorm:"column:host;size:255;index" json:"host"`
 	Port           int        `gorm:"column:port" json:"port"`
 	Username       string     `gorm:"column:username;size:128" json:"username"`
@@ -41,6 +43,9 @@ type Datasource struct {
 	ConnStatus     string     `gorm:"column:conn_status;size:32" json:"connStatus"`
 	ConnLatencyMs  int64      `gorm:"column:conn_latency_ms;default:0" json:"connLatencyMs"`
 	Status         string     `gorm:"column:status;size:32;default:'active'" json:"status"`
+	OwnerID        string     `gorm:"column:owner_id;size:64" json:"ownerId"`
+	OrgID          string     `gorm:"column:org_id;size:64" json:"orgId"`
+	LastUseTime    *time.Time `gorm:"column:last_use_time" json:"lastUseTime,omitempty"`
 }
 
 func (Datasource) TableName() string { return "datasources" }
@@ -75,9 +80,12 @@ func ValidColorLabels() []string {
 }
 
 const (
-	ConnStatusOK   = "ok"
-	ConnStatusFail = "fail"
-	ConnStatusNone = ""
+	ConnStatusOK        = "ok"
+	ConnStatusFail      = "fail"
+	ConnStatusNone      = ""
+	ConnStatusSuccess   = "success"
+	ConnStatusUnknown   = "unknown"
+	ConnStatusConnecting = "connecting"
 )
 
 func (d *Datasource) IsConnectionOK() bool {

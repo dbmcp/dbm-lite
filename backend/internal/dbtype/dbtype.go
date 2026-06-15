@@ -19,8 +19,8 @@ import (
 	"dbm-lite/config"
 	"dbm-lite/pkg/crypto"
 
+	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -61,8 +61,10 @@ type TestResult struct {
 }
 
 var (
-	connMap  = make(map[string]*ConnectionInfo)
-	connLock sync.RWMutex
+	connMap   = make(map[string]*ConnectionInfo)
+	connLock  sync.RWMutex
+	txMap     = make(map[string]*sql.Tx)
+	txLock    sync.RWMutex
 )
 
 func SupportedTypes() []string {
@@ -389,4 +391,55 @@ func EncryptPassword(plain string) (string, error) {
 		return "", nil
 	}
 	return crypto.EncryptAES(plain, config.App.AESKey)
+}
+
+func BeginTransaction(key string) error {
+	connLock.RLock()
+	ci, ok := connMap[key]
+	connLock.RUnlock()
+	if !ok {
+		return fmt.Errorf("connection not found: %s", key)
+	}
+
+	tx, err := ci.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction failed: %w", err)
+	}
+
+	txLock.Lock()
+	txMap[key] = tx
+	txLock.Unlock()
+	return nil
+}
+
+func CommitTransaction(key string) error {
+	txLock.Lock()
+	tx, ok := txMap[key]
+	if !ok {
+		txLock.Unlock()
+		return fmt.Errorf("transaction not found: %s", key)
+	}
+	delete(txMap, key)
+	txLock.Unlock()
+
+	return tx.Commit()
+}
+
+func RollbackTransaction(key string) error {
+	txLock.Lock()
+	tx, ok := txMap[key]
+	if !ok {
+		txLock.Unlock()
+		return fmt.Errorf("transaction not found: %s", key)
+	}
+	delete(txMap, key)
+	txLock.Unlock()
+
+	return tx.Rollback()
+}
+
+func GetTransaction(key string) *sql.Tx {
+	txLock.RLock()
+	defer txLock.RUnlock()
+	return txMap[key]
 }

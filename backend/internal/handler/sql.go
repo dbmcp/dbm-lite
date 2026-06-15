@@ -571,3 +571,367 @@ func (h *DatasourceHandler) TestConnectionFromForm(c *gin.Context) {
 	}
 	middleware.Fail(c, http.StatusBadRequest, 400, result.Message)
 }
+
+// ==================== V2 API 处理器 (success/data/message 统一格式) ====================
+
+type v2CreateDsReq struct {
+	Name           string   `json:"name"`
+	DatasourceType string   `json:"datasourceType"`
+	Type           string   `json:"type"`
+	DBType         string   `json:"dbType"`
+	Env            string   `json:"env"`
+	Host           string   `json:"host"`
+	Port           *int     `json:"port"`
+	Username       string   `json:"username"`
+	Password       string   `json:"password"`
+	DatabaseName   string   `json:"databaseName"`
+	Description    string   `json:"description"`
+	Tags           []string `json:"tags"`
+	FilePath       string   `json:"filePath"`
+	OpenMode       string   `json:"openMode"`
+	ColorLabel     string   `json:"colorLabel"`
+}
+
+type v2UpdateDsReq struct {
+	Name         string   `json:"name"`
+	Env          string   `json:"env"`
+	Host         string   `json:"host"`
+	Port         *int     `json:"port"`
+	Username     string   `json:"username"`
+	Password     string   `json:"password"`
+	DatabaseName string   `json:"databaseName"`
+	Description  string   `json:"description"`
+	Tags         []string `json:"tags"`
+	FilePath     string   `json:"filePath"`
+	OpenMode     string   `json:"openMode"`
+	ColorLabel   string   `json:"colorLabel"`
+	Status       string   `json:"status"`
+}
+
+type v2TestConnReq struct {
+	DBType       string `json:"dbType"`
+	Type         string `json:"type"`
+	DatasourceType string `json:"datasourceType"`
+	Host         string `json:"host"`
+	Port         *int   `json:"port"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	DatabaseName string `json:"databaseName"`
+	FilePath     string `json:"filePath"`
+}
+
+// GetMatrix - GET /api/datasource/matrix
+func (h *DatasourceHandler) GetMatrix(c *gin.Context) {
+	result, err := h.dsSvc.GetMatrix()
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}
+
+// ListDatasourceV2 - GET /api/datasource/listDatasource
+func (h *DatasourceHandler) ListDatasourceV2(c *gin.Context) {
+	keyword := c.Query("keyword")
+	dbType := c.Query("type")
+	if dbType == "" {
+		dbType = c.Query("dbType")
+	}
+	current, _ := strconv.Atoi(c.DefaultQuery("current", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+
+	list, total, err := h.dsSvc.ListDatasource(keyword, dbType, current, pageSize)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.SuccessList(c, list, total, current, pageSize)
+}
+
+// GetDatasourceInfoV2 - GET /api/datasource/:id/datasourceInfo
+func (h *DatasourceHandler) GetDatasourceInfoV2(c *gin.Context) {
+	id := c.Param("id")
+	ds, err := h.dsSvc.GetDatasourceInfo(id)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	middleware.Success(c, ds)
+}
+
+// CreateDatasourceV2 - POST /api/datasource/createDatasource
+func (h *DatasourceHandler) CreateDatasourceV2(c *gin.Context) {
+	var req v2CreateDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Error(c, "请求参数错误: "+err.Error())
+		return
+	}
+
+	userId := middleware.GetStr(c, "userId")
+
+	// 转换请求参数到内部模型
+	dbType := strings.ToLower(req.DBType)
+	if dbType == "" {
+		dbType = strings.ToLower(req.Type)
+	}
+	if dbType == "" {
+		dbType = strings.ToLower(req.DatasourceType)
+	}
+
+	serviceReq := &service.CreateDatasourceReq{
+		Name:           req.Name,
+		DatasourceType: dbType,
+		Type:           dbType,
+		DBType:         dbType,
+		Env:            req.Env,
+		Host:           req.Host,
+		Port:           req.Port,
+		Username:       req.Username,
+		Password:       req.Password,
+		DatabaseName:   req.DatabaseName,
+		Description:    req.Description,
+		Tags:           req.Tags,
+		FilePath:       req.FilePath,
+		OpenMode:       req.OpenMode,
+		ColorLabel:     req.ColorLabel,
+	}
+
+	result, err := h.dsSvc.CreateDatasource(serviceReq, userId)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}
+
+// UpdateDatasourceV2 - POST /api/datasource/:id/updateDatasource
+func (h *DatasourceHandler) UpdateDatasourceV2(c *gin.Context) {
+	id := c.Param("id")
+	var req v2UpdateDsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Error(c, "请求参数错误")
+		return
+	}
+
+	serviceReq := &service.UpdateDatasourceReq{
+		Name:         req.Name,
+		Env:          req.Env,
+		Host:         req.Host,
+		Port:         req.Port,
+		Username:     req.Username,
+		Password:     req.Password,
+		DatabaseName: req.DatabaseName,
+		Description:  req.Description,
+		Tags:         req.Tags,
+		FilePath:     req.FilePath,
+		OpenMode:     req.OpenMode,
+		ColorLabel:   req.ColorLabel,
+		Status:       req.Status,
+	}
+
+	result, err := h.dsSvc.UpdateDatasource(id, serviceReq)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}
+
+// DeleteDatasourceV2 - POST /api/datasource/:id/deleteDatasource
+func (h *DatasourceHandler) DeleteDatasourceV2(c *gin.Context) {
+	id := c.Param("id")
+	err := h.dsSvc.DeleteDatasource(id)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, nil)
+}
+
+// TestConnectionV2 - POST /api/datasource/testConnection
+func (h *DatasourceHandler) TestConnectionV2(c *gin.Context) {
+	var req v2TestConnReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Error(c, "请求参数错误")
+		return
+	}
+
+	dbType := strings.ToLower(req.DBType)
+	if dbType == "" {
+		dbType = strings.ToLower(req.Type)
+	}
+	if dbType == "" {
+		dbType = strings.ToLower(req.DatasourceType)
+	}
+
+	serviceReq := &service.TestConnectionReq{
+		DBType:       dbType,
+		Host:         req.Host,
+		Port:         req.Port,
+		Username:     req.Username,
+		Password:     req.Password,
+		DatabaseName: req.DatabaseName,
+		FilePath:     req.FilePath,
+	}
+
+	result, err := h.dsSvc.TestConnection(serviceReq)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}
+
+// ListRecentlyDatasourceV2 - GET /api/datasource/listRecentlyDatasource
+func (h *DatasourceHandler) ListRecentlyDatasourceV2(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "8"))
+	result, err := h.dsSvc.ListRecentlyDatasource(limit)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}
+
+// ==================== SQL IDE V2 API 处理器 ====================
+
+// ExecuteSQLV2 - POST /api/dataquery/sql/execute
+func (h *SQLHandler) ExecuteSQLV2(c *gin.Context) {
+	var req executeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Error(c, "请求参数错误")
+		return
+	}
+	ds, err := h.dsSvc.GetById(req.DatasourceID)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	userId := middleware.GetStr(c, "userId")
+	username := middleware.GetStr(c, "username")
+	result, err := h.sqlSvc.Execute(ds, req.Database, req.SQL, req.IgnoreRisk, userId, username)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}
+
+// HistoryV2 - GET /api/dataquery/sqlHistory/list
+func (h *SQLHandler) HistoryV2(c *gin.Context) {
+	current, _ := strconv.Atoi(c.DefaultQuery("current", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	datasourceId := c.Query("datasourceId")
+	keyword := c.Query("keyword")
+	list, total, err := h.sqlSvc.GetHistory(current, pageSize, datasourceId, keyword)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.SuccessList(c, list, total, current, pageSize)
+}
+
+// GetDatabasesV2 - GET /api/dataquery/databases/:id
+func (h *SQLHandler) GetDatabasesV2(c *gin.Context) {
+	id := c.Param("id")
+	ds, err := h.dsSvc.GetById(id)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	dbs, err := h.sqlSvc.GetDatabases(ds)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, dbs)
+}
+
+// GetTablesV2 - GET /api/dataquery/tables/:id
+func (h *SQLHandler) GetTablesV2(c *gin.Context) {
+	id := c.Param("id")
+	dbName := c.Query("database")
+	ds, err := h.dsSvc.GetById(id)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	tables, err := h.sqlSvc.GetTables(ds, dbName)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, tables)
+}
+
+// GetColumnsV2 - GET /api/dataquery/columns/:id
+func (h *SQLHandler) GetColumnsV2(c *gin.Context) {
+	id := c.Param("id")
+	dbName := c.Query("database")
+	tableName := c.Query("table")
+	ds, err := h.dsSvc.GetById(id)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	cols, err := h.sqlSvc.GetColumns(ds, dbName, tableName)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, cols)
+}
+
+// GetFullTreeV2 - GET /api/dataquery/tree/:id
+func (h *SQLHandler) GetFullTreeV2(c *gin.Context) {
+	id := c.Param("id")
+	ds, err := h.dsSvc.GetById(id)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	tree, err := h.sqlSvc.GetFullTree(ds)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, tree)
+}
+
+// GetTableInfoV2 - GET /api/dataquery/table-info/:id
+func (h *SQLHandler) GetTableInfoV2(c *gin.Context) {
+	id := c.Param("id")
+	dbName := c.Query("database")
+	tableName := c.Query("table")
+	ds, err := h.dsSvc.GetById(id)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	info, err := h.sqlSvc.GetTableInfo(ds, dbName, tableName)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, info)
+}
+
+// ExplainSQLV2 - POST /api/dataquery/sql/explain
+func (h *SQLHandler) ExplainSQLV2(c *gin.Context) {
+	var req executeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Error(c, "请求参数错误")
+		return
+	}
+	ds, err := h.dsSvc.GetById(req.DatasourceID)
+	if err != nil {
+		middleware.Error(c, "数据源不存在")
+		return
+	}
+	result, err := h.sqlSvc.Explain(ds, req.Database, req.SQL)
+	if err != nil {
+		middleware.Error(c, err.Error())
+		return
+	}
+	middleware.Success(c, result)
+}

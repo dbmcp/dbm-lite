@@ -70,7 +70,7 @@
         <el-table-column prop="name" label="数据源名称" sortable v-if="colVisible.name" min-width="180">
           <template #default="{ row }">
             <span class="color-bar" :style="{ background: colorOf(row.colorLabel) }"></span>
-            <el-link type="primary" :underline="false" @click="goDetail(row)">{{ row.name }}</el-link>
+            <el-link type="primary" :is-underline="false" @click="goDetail(row)">{{ row.name }}</el-link>
           </template>
         </el-table-column>
         <el-table-column label="数据库类型" sortable v-if="colVisible.dbType" width="110">
@@ -161,7 +161,7 @@
               <el-tooltip :content="connStatusTooltip(row)" placement="top">
                 <span class="status-dot" :class="statusClass(row)" style="margin-right:6px;"></span>
               </el-tooltip>
-              <el-link type="primary" :underline="false" class="ds-name" @click="goDetail(row)">{{ row.name }}</el-link>
+              <el-link type="primary" :is-underline="false" class="ds-name" @click="goDetail(row)">{{ row.name }}</el-link>
             </div>
             <div class="card-type">
               <el-tag v-if="row.dbType === 'mysql'" type="primary" size="small">MySQL</el-tag>
@@ -318,7 +318,7 @@
           </el-row>
 
           <el-form-item>
-            <el-checkbox v-model="form.sslMode" true-label="true" false-label="false">启用 SSL 连接</el-checkbox>
+            <el-checkbox v-model="form.sslMode" :true-value="'true'" :false-value="'false'">启用 SSL 连接</el-checkbox>
             <el-checkbox v-model="form.readOnly" style="margin-left:16px;">只读模式（SQL IDE 禁用 DDL/DML）</el-checkbox>
           </el-form-item>
 
@@ -439,7 +439,8 @@ import { useUserStore } from '@/stores/user'
 import { useDatasourceStore } from '@/stores/datasource'
 import {
   listDatasources, createDatasource, updateDatasource, deleteDatasource, copyDatasource,
-  testConnection as testConn, testConnectionById, listDatabases, listTables
+  testConnection as testConn, testConnectionById, listDatabases, listTables,
+  listDatasource, createDatasourceV2, updateDatasourceV2, deleteDatasourceV2
 } from '@/api/datasource'
 import request from '@/api/request'
 import ColumnToggle from '@/components/ColumnToggle.vue'

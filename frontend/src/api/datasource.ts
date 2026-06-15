@@ -160,3 +160,180 @@ export function getFullTree(id: string) {
     method: 'GET'
   })
 }
+
+// V2 API 接口
+
+export interface DatasourceMatrixItem {
+  id: string
+  name: string
+  dbType: string
+  type: string
+  env: string
+  status: string
+  connectStatus: string
+  description: string
+  tags: string[]
+  createTime: string
+  iconType: string
+}
+
+export interface EnvGroup {
+  env: string
+  envName: string
+  datasourceList: DatasourceMatrixItem[]
+}
+
+export interface DatasourceListItem {
+  id: string
+  name: string
+  datasourceType: string
+  type: string
+  dbType: string
+  env: string
+  host: string
+  port: number | null
+  username: string
+  password: string
+  databaseName: string
+  description: string
+  status: string
+  connectStatus: string
+  createTime: string
+  updateTime: string
+  tags: string[]
+}
+
+export interface DatasourceDetail {
+  id: string
+  name: string
+  datasourceType: string
+  type: string
+  dbType: string
+  env: string
+  host: string
+  port: number | null
+  username: string
+  password: string
+  databaseName: string
+  description: string
+  status: string
+  connectStatus: string
+  createTime: string
+  updateTime: string
+  tags: string[]
+  ownerId: string
+  orgId: string
+}
+
+export interface ListResult {
+  total: number
+  current: number
+  pageSize: number
+  list: DatasourceListItem[]
+}
+
+export interface CreateDatasourceReq {
+  name: string
+  datasourceType?: string
+  type?: string
+  dbType: string
+  env: string
+  host: string
+  port?: number
+  username?: string
+  password?: string
+  databaseName?: string
+  description?: string
+  tags?: string[]
+}
+
+export interface UpdateDatasourceReq {
+  name?: string
+  env?: string
+  host?: string
+  port?: number
+  username?: string
+  password?: string
+  databaseName?: string
+  description?: string
+  tags?: string[]
+}
+
+export interface TestConnectionReq {
+  dbType: string
+  host: string
+  port?: number
+  username?: string
+  password?: string
+  databaseName?: string
+  filePath?: string
+}
+
+export interface TestConnectionResult {
+  success: boolean
+  message: string
+  version: string
+  cost: number
+  status: string
+}
+
+export function getMatrix() {
+  return request<EnvGroup[]>({
+    url: '/datasource/matrix',
+    method: 'GET'
+  })
+}
+
+export function listDatasource(keyword?: string, dbType?: string, current = 1, pageSize = 10) {
+  return request<ListResult>({
+    url: '/datasource/listDatasource',
+    method: 'GET',
+    params: { keyword, type: dbType, current, pageSize }
+  })
+}
+
+export function getDatasourceInfo(id: string) {
+  return request<DatasourceDetail>({
+    url: '/datasource/' + id + '/datasourceInfo',
+    method: 'GET'
+  })
+}
+
+export function createDatasourceV2(data: CreateDatasourceReq) {
+  return request<DatasourceDetail>({
+    url: '/datasource/createDatasource',
+    method: 'POST',
+    data
+  })
+}
+
+export function updateDatasourceV2(id: string, data: UpdateDatasourceReq) {
+  return request<DatasourceDetail>({
+    url: '/datasource/' + id + '/updateDatasource',
+    method: 'POST',
+    data
+  })
+}
+
+export function deleteDatasourceV2(id: string) {
+  return request({
+    url: '/datasource/' + id + '/deleteDatasource',
+    method: 'POST'
+  })
+}
+
+export function testConnectionV2(data: TestConnectionReq) {
+  return request<TestConnectionResult>({
+    url: '/datasource/testConnection',
+    method: 'POST',
+    data
+  })
+}
+
+export function listRecentlyDatasource(limit = 8) {
+  return request<DatasourceListItem[]>({
+    url: '/datasource/listRecentlyDatasource',
+    method: 'GET',
+    params: { limit }
+  })
+}

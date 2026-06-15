@@ -1,9 +1,9 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$BEDIR = 'G:\dbm\db\dbm-lite\backend'
-$FEDIR = 'G:\dbm\db\dbm-lite\frontend'
-$LOGDIR = 'G:\dbm\db\dbm-lite\logs'
+$BEDIR = Join-Path $PSScriptRoot 'backend'
+$FEDIR = Join-Path $PSScriptRoot 'frontend'
+$LOGDIR = Join-Path $PSScriptRoot 'logs'
 
 if (-not (Test-Path $LOGDIR)) { New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null }
 

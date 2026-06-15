@@ -74,7 +74,7 @@
           </el-col>
         </el-row>
         <el-form-item>
-          <el-checkbox v-model="form.sslMode" true-label="true" false-label="false">启用 SSL 连接</el-checkbox>
+          <el-checkbox v-model="form.sslMode" :true-value="'true'" :false-value="'false'">启用 SSL 连接</el-checkbox>
           <el-checkbox v-model="form.readOnly" style="margin-left:16px">只读模式</el-checkbox>
         </el-form-item>
       </template>

@@ -58,7 +58,7 @@ async function handleLogin() {
   try {
     await userStore.login(form.value)
     ElMessage.success('登录成功')
-    const redirect = (route.query.redirect as string) || '/sql/workbench'
+    const redirect = (route.query.redirect as string) || localStorage.getItem('dbm-lite-last-page') || '/dashboard'
     router.push(redirect)
   } catch (e: any) {
     console.error('login failed:', e)

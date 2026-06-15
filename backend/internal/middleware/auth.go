@@ -23,6 +23,16 @@ type Response struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+// UnifiedResponse 统一响应格式：success/data/message
+type UnifiedResponse struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Message string      `json:"message"`
+	Total   int64       `json:"total,omitempty"`
+	Current int         `json:"current,omitempty"`
+	PageSize int        `json:"pageSize,omitempty"`
+}
+
 const (
 	CodeSuccess = 0
 	CodeParam   = 400
@@ -32,11 +42,26 @@ const (
 )
 
 func OK(c *gin.Context, data interface{}) {
-	c.JSON(http.StatusOK, Response{Code: CodeSuccess, Message: "成功", Data: data})
+	c.JSON(http.StatusOK, UnifiedResponse{Success: true, Message: "成功", Data: data})
 }
 
 func Fail(c *gin.Context, httpStatus int, code int, message string) {
-	c.AbortWithStatusJSON(httpStatus, Response{Code: code, Message: message})
+	c.AbortWithStatusJSON(http.StatusOK, UnifiedResponse{Success: false, Message: message})
+}
+
+// Success 统一格式的成功响应
+func Success(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, UnifiedResponse{Success: true, Message: "成功", Data: data})
+}
+
+// SuccessList 统一格式的列表响应（带分页信息）
+func SuccessList(c *gin.Context, data interface{}, total int64, current, pageSize int) {
+	c.JSON(http.StatusOK, UnifiedResponse{Success: true, Message: "成功", Data: data, Total: total, Current: current, PageSize: pageSize})
+}
+
+// Error 统一格式的失败响应
+func Error(c *gin.Context, message string) {
+	c.AbortWithStatusJSON(http.StatusOK, UnifiedResponse{Success: false, Message: message})
 }
 
 func CORS() gin.HandlerFunc {
