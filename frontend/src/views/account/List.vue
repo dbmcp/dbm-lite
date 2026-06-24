@@ -108,7 +108,7 @@ const columns = [
   { key: 'status', label: '状态' },
   { key: 'createdAt', label: '创建时间' }
 ]
-const colVisible = reactive<Record<string, boolean>>({
+let colVisible = reactive<Record<string, boolean>>({
   username: true, displayName: true, email: true,
   role: true, status: true, createdAt: true
 })

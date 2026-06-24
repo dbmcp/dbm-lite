@@ -238,7 +238,7 @@ const projColumns = [
   { key: 'members', label: '成员数' },
   { key: 'bizCount', label: '关联业务数' }
 ]
-const projColVisible = reactive<Record<string, boolean>>({
+let projColVisible = reactive<Record<string, boolean>>({
   name: true, description: true, createdBy: true, createdAt: true, members: true, bizCount: true
 })
 
@@ -251,7 +251,7 @@ const columns = [
   { key: 'members', label: '成员数' },
   { key: 'createdAt', label: '创建时间' }
 ]
-const colVisible = reactive<Record<string, boolean>>({
+let colVisible = reactive<Record<string, boolean>>({
   projectName: true, code: true, name: true, description: true, env: true, members: true, createdAt: true
 })
 

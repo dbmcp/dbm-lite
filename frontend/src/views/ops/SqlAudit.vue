@@ -1,4 +1,4 @@
-﻿﻿﻿﻿<!--
+﻿﻿﻿<!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
 @Author: DB老王
@@ -172,7 +172,7 @@ const ruleColumns = [
   { key: 'enabled', label: '启用状态' },
   { key: 'action', label: '操作' }
 ]
-const ruleColVisible = reactive<Record<string, boolean>>({
+let ruleColVisible = reactive<Record<string, boolean>>({
   index: true, name: true, scope: true, desc: true, level: true, enabled: true, action: true
 })
 const ruleList = ref<any[]>([])

@@ -1,4 +1,4 @@
-﻿﻿<!--
+﻿<!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
 @Author: DB老王
@@ -222,7 +222,7 @@ const migrateColumns = [
   { key: 'createTime', label: '创建时间' },
   { key: 'action', label: '操作' }
 ]
-const migrateColVisible = reactive<Record<string, boolean>>({
+let migrateColVisible = reactive<Record<string, boolean>>({
   id: true, source: true, target: true, mode: true, progress: true, status: true, createTime: true, action: true
 })
 const migrateList = ref<any[]>([])
@@ -236,7 +236,7 @@ const schemaColumns = [
   { key: 'type', label: '差异类型' },
   { key: 'detail', label: '差异详情' }
 ]
-const schemaColVisible = reactive<Record<string, boolean>>({ table: true, type: true, detail: true })
+let schemaColVisible = reactive<Record<string, boolean>>({ table: true, type: true, detail: true })
 const schemaDiff = ref<any[]>([])
 const schemaPage = ref(1)
 const schemaPageSize = ref(50)
@@ -255,7 +255,7 @@ const dataColumns = [
   { key: 'percent', label: '一致性' },
   { key: 'action', label: '操作' }
 ]
-const dataColVisible = reactive<Record<string, boolean>>({
+let dataColVisible = reactive<Record<string, boolean>>({
   table: true, sourceCount: true, targetCount: true, diff: true, percent: true, action: true
 })
 const dataDiff = ref<any[]>([])

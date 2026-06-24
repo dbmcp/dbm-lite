@@ -109,7 +109,7 @@
             <!-- 编辑器与结果面板之间的拖拽条 -->
             <div 
               class="resizer-editor" 
-              @mousedown="startEditorResize"
+              @mousedown.stop.prevent="startEditorResize"
               :class="{ dragging: isEditorResizing }"
             ></div>
             
@@ -250,13 +250,15 @@ function startEditorResize(e: MouseEvent) {
 function onEditorResize(e: MouseEvent) {
   if (!isEditorResizing.value) return
   
-  const tabPane = document.querySelector('.tab-pane') as HTMLElement
+  const tabPane = document.querySelector('.tab-content') as HTMLElement
   if (!tabPane) return
   
   const rect = tabPane.getBoundingClientRect()
+  if (rect.height === 0) return
+  
   const deltaY = e.clientY - startY.value
   const deltaPercent = (deltaY / rect.height) * 100
-  const newHeight = startHeight.value + deltaPercent
+  const newHeight = startHeight.value - deltaPercent
   
   if (newHeight >= 20 && newHeight <= 85) {
     editorHeight.value = Math.round(newHeight * 10) / 10
