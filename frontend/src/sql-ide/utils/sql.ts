@@ -1,5 +1,6 @@
 import type { TreeNode } from '../types'
 import { escapeIdentifier } from './tree'
+import { format } from 'sql-formatter'
 export { escapeIdentifier }
 
 interface DatabaseAndReferences {
@@ -142,27 +143,38 @@ const NEWLINE_KW = new Set([
 ])
 
 /**
- * 轻量级 SQL 美化：关键字大写、子句换行、缩进分层。
- * 不依赖任何三方库，严格对标 Navicat 风格。
+ * SQL 美化：使用专业的 sql-formatter 库实现专业的格式化。
+ * 支持关键字大写、子句换行、缩进分层、列表对齐等高级格式化功能。
  */
 export function beautifySql(sql: string): string {
   if (!sql) return ''
-  // 先分词：保留字符串/注释/数字/关键字/符号
+  try {
+    return format(sql, {
+      language: 'mysql',
+      indent: '  ',
+      uppercase: true,
+      linesBetweenQueries: 1
+    })
+  } catch (e) {
+    console.warn('SQL formatting failed, falling back to simple formatting:', e)
+    return simpleBeautify(sql)
+  }
+}
+
+function simpleBeautify(sql: string): string {
   const tokens: string[] = []
   let i = 0
   const n = sql.length
   while (i < n) {
     const ch = sql.charCodeAt(i)
-    // 单行注释
-    if (ch === 45 && sql.charCodeAt(i + 1) === 45) { // --
+    if (ch === 45 && sql.charCodeAt(i + 1) === 45) {
       let j = i
       while (j < n && sql.charCodeAt(j) !== 10) j++
       tokens.push(sql.substring(i, j))
       i = j
       continue
     }
-    // 块注释
-    if (ch === 47 && sql.charCodeAt(i + 1) === 42) { // /*
+    if (ch === 47 && sql.charCodeAt(i + 1) === 42) {
       let j = i + 2
       while (j < n - 1 && !(sql.charCodeAt(j) === 42 && sql.charCodeAt(j + 1) === 47)) j++
       j = Math.min(n, j + 2)
@@ -170,20 +182,18 @@ export function beautifySql(sql: string): string {
       i = j
       continue
     }
-    // 字符串
-    if (ch === 39 || ch === 34) { // ' or "
+    if (ch === 39 || ch === 34) {
       const q = ch
       let j = i + 1
       while (j < n) {
         if (sql.charCodeAt(j) === q) { j++; break }
-        if (sql.charCodeAt(j) === 92 && j + 1 < n) { j += 2; continue } // \ escape
+        if (sql.charCodeAt(j) === 92 && j + 1 < n) { j += 2; continue }
         j++
       }
       tokens.push(sql.substring(i, j))
       i = j
       continue
     }
-    // 反引号标识符
     if (ch === 96) {
       let j = i + 1
       while (j < n && sql.charCodeAt(j) !== 96) j++
@@ -192,7 +202,6 @@ export function beautifySql(sql: string): string {
       i = j
       continue
     }
-    // 空白
     if (ch === 32 || ch === 9 || ch === 10 || ch === 13) {
       let j = i + 1
       while (j < n) {
@@ -203,7 +212,6 @@ export function beautifySql(sql: string): string {
       i = j
       continue
     }
-    // 数字
     if (ch >= 48 && ch <= 57) {
       let j = i + 1
       while (j < n) {
@@ -214,7 +222,6 @@ export function beautifySql(sql: string): string {
       i = j
       continue
     }
-    // 字母/下划线 -> 关键字或标识符
     if ((ch >= 65 && ch <= 90) || (ch >= 97 && ch <= 122) || ch === 95) {
       let j = i + 1
       while (j < n) {
@@ -225,12 +232,10 @@ export function beautifySql(sql: string): string {
       i = j
       continue
     }
-    // 单独符号
     tokens.push(sql.charAt(i))
     i++
   }
 
-  // 组装：根据关键字换行 + 缩进
   const out: string[] = []
   let depth = 0
   const newlineAndIndent = () => {
@@ -239,7 +244,6 @@ export function beautifySql(sql: string): string {
   for (let k = 0; k < tokens.length; k++) {
     const tk = tokens[k]
     if (tk === ' ' || tk === '\n' || tk === '\t') {
-      // 折叠多余空格
       if (out.length > 0 && out[out.length - 1] !== ' ' && out[out.length - 1] !== '\n' && !out[out.length - 1].endsWith('\n')) {
         out.push(' ')
       }
@@ -247,7 +251,6 @@ export function beautifySql(sql: string): string {
     }
     const upper = tk.toUpperCase()
     if (tk === '(') {
-      // 左括号：深度 +1；若紧跟 SELECT 则换行
       const nextNonSpace = (() => {
         for (let m = k + 1; m < tokens.length; m++) {
           if (tokens[m] !== ' ' && tokens[m] !== '\n' && tokens[m] !== '\t') return tokens[m].toUpperCase()
@@ -255,7 +258,6 @@ export function beautifySql(sql: string): string {
         return ''
       })()
       if (out.length > 0 && !out[out.length - 1].endsWith('\n') && ![' ', '\n'].includes(out[out.length - 1])) {
-        // 去除末端空格
         while (out.length > 0 && out[out.length - 1] === ' ') out.pop()
       }
       out.push('(')
@@ -267,7 +269,6 @@ export function beautifySql(sql: string): string {
     }
     if (tk === ')') {
       depth = Math.max(0, depth - 1)
-      // 移除末端多余空格
       while (out.length > 0 && out[out.length - 1] === ' ') out.pop()
       out.push(')')
       continue
@@ -294,11 +295,9 @@ export function beautifySql(sql: string): string {
       out.push(upper + ' ')
       continue
     }
-    // 普通 token
     out.push(tk)
   }
 
-  // 合并结果并清理空行
   const text = out.join('').replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim()
   return text
 }

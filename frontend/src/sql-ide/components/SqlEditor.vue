@@ -1,23 +1,6 @@
 <template>
-  <div class="sql-editor-container" @click="onContainerClick">
-    <div class="sql-editor-wrapper">
-      <textarea
-        :id="'sql-editor-' + tabId"
-        class="sql-editor-textarea"
-        ref="textareaRef"
-        :value="value"
-        :readonly="readonly"
-        :placeholder="placeholder"
-        @input="onInput"
-        @keydown="onKeydown"
-        @click="onTextareaClick"
-        @select="onTextareaSelect"
-        @blur="onTextareaBlur"
-        @focus="onTextareaFocus"
-        spellcheck="false"
-      ></textarea>
-    </div>
-    <!-- 智能提示下拉 -->
+  <div class="sql-editor-container" ref="containerRef">
+    <div ref="editorRef" class="sql-editor"></div>
     <div v-if="suggestions.length > 0" class="suggestions-popup" :style="popupStyle">
       <div
         v-for="(item, idx) in suggestions"
@@ -36,7 +19,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import CodeMirror from 'codemirror'
+import 'codemirror/lib/codemirror.css'
+import 'codemirror/theme/eclipse.css'
+import 'codemirror/mode/sql/sql'
 
 interface Suggestion {
   key: string
@@ -90,22 +77,13 @@ const emit = defineEmits<{
   (e: 'beautify'): void
 }>()
 
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
+const editorRef = ref<HTMLElement | null>(null)
+let cm: CodeMirror.Editor | null = null
+
 const suggestions = ref<Suggestion[]>([])
 const selectedIndex = ref(0)
 const popupPos = ref<{ top: number; left: number }>({ top: 0, left: 0 })
-
-// 保存选中状态
-const savedSelection = ref<{ start: number; end: number } | null>(null)
-// 保存编辑器内容（用于检测是否被外部修改）
-const savedContent = ref('')
-// 标记是否需要恢复选中状态
-const shouldRestoreSelection = ref(false)
-
-const popupStyle = computed(() => ({
-  top: popupPos.value.top + 'px',
-  left: popupPos.value.left + 'px'
-}))
 
 function iconFor(type: string): string {
   switch (type) {
@@ -114,50 +92,6 @@ function iconFor(type: string): string {
     case 'column': return 'C'
     case 'function': return 'F'
     default: return '?'
-  }
-}
-
-function getCaretCoordinates(ta: HTMLTextAreaElement): { top: number; left: number } {
-  const rect = ta.getBoundingClientRect()
-  const div = document.createElement('div')
-  const style = window.getComputedStyle(ta)
-  const props = [
-    'boxSizing', 'width', 'height', 'overflowX', 'overflowY',
-    'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-    'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-    'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize',
-    'fontSizeAdjust', 'lineHeight', 'fontFamily',
-    'textAlign', 'textTransform', 'textIndent', 'textDecoration',
-    'letterSpacing', 'wordSpacing', 'tabSize', 'MozTabSize'
-  ]
-  div.style.position = 'absolute'
-  div.style.visibility = 'hidden'
-  div.style.whiteSpace = 'pre-wrap'
-  div.style.wordWrap = 'break-word'
-  div.style.top = '0'
-  div.style.left = '0'
-  div.style.width = ta.clientWidth + 'px'
-  div.style.padding = style.padding
-  div.style.font = style.font
-  div.style.lineHeight = style.lineHeight
-  div.style.fontFamily = style.fontFamily
-  div.style.fontSize = style.fontSize
-
-  const pos = ta.selectionStart
-  const text = ta.value.substring(0, pos)
-  div.textContent = text
-  const span = document.createElement('span')
-  span.textContent = ta.value.substring(pos) || '.'
-  div.appendChild(span)
-  document.body.appendChild(div)
-
-  const spanRect = span.getBoundingClientRect()
-  const divRect = div.getBoundingClientRect()
-  document.body.removeChild(div)
-
-  return {
-    top: spanRect.top - divRect.top + parseInt(style.lineHeight || '20') + 8,
-    left: spanRect.left - divRect.left + 2
   }
 }
 
@@ -170,7 +104,6 @@ function computeSuggestions(text: string, pos: number): Suggestion[] {
   const results: Suggestion[] = []
   const added = new Set<string>()
 
-  // 关键字匹配
   for (const kw of SQL_KEYWORDS) {
     if (kw.toLowerCase().startsWith(lower) && !added.has(kw)) {
       added.add(kw)
@@ -185,7 +118,6 @@ function computeSuggestions(text: string, pos: number): Suggestion[] {
     if (results.length > 30) break
   }
 
-  // 表/视图名匹配
   const names = props.suggestionNames || []
   for (const name of names) {
     if (name.toLowerCase().startsWith(lower) && !added.has('t_' + name)) {
@@ -201,7 +133,6 @@ function computeSuggestions(text: string, pos: number): Suggestion[] {
     if (results.length > 60) break
   }
 
-  // 列名匹配（如果 suggestionColumns 提供）
   const cols = props.suggestionColumns || []
   for (const c of cols) {
     if (c.toLowerCase().startsWith(lower) && !added.has('c_' + c)) {
@@ -216,7 +147,6 @@ function computeSuggestions(text: string, pos: number): Suggestion[] {
     }
   }
 
-  // 识别 "表名." 前缀 -> 提供列名提示
   const dotMatch = before.match(/([A-Za-z_][A-Za-z0-9_]*)\.\s*([A-Za-z0-9_]*)$/)
   if (dotMatch) {
     for (const c of cols) {
@@ -237,129 +167,55 @@ function computeSuggestions(text: string, pos: number): Suggestion[] {
 }
 
 function updateSuggestions() {
-  const ta = textareaRef.value
-  if (!ta || props.readonly) {
+  if (!cm || props.readonly) {
     suggestions.value = []
     return
   }
-  const pos = ta.selectionStart
-  const text = ta.value
-  const items = computeSuggestions(text, pos)
+  const pos = cm.getCursor()
+  const text = cm.getValue()
+  const doc = cm.getDoc()
+  const cursorPos = doc.indexFromPos(pos)
+  const items = computeSuggestions(text, cursorPos)
   if (items.length === 0) {
     suggestions.value = []
     return
   }
-  // 计算 popup 位置
-  const coords = getCaretCoordinates(ta)
-  popupPos.value = { top: coords.top, left: coords.left }
+  const coords = cm.cursorCoords(pos)
+  popupPos.value = { top: coords.bottom + 5, left: coords.left }
   suggestions.value = items
   selectedIndex.value = 0
 }
 
 function applySuggestion(item: Suggestion) {
-  const ta = textareaRef.value
-  if (!ta) return
-  const pos = ta.selectionStart
-  const text = ta.value
-  const before = text.substring(0, pos)
-  const after = text.substring(pos)
+  if (!cm) return
+  const pos = cm.getCursor()
+  const text = cm.getValue()
+  const doc = cm.getDoc()
+  const cursorPos = doc.indexFromPos(pos)
+  const before = text.substring(0, cursorPos)
+  const after = text.substring(cursorPos)
   const match = before.match(/[A-Za-z_][A-Za-z0-9_]*$/)
-  const startPos = match ? before.length - match[0].length : pos
-  // 识别 "表名." 前缀情况
-  const dotMatch = before.substring(0, startPos).match(/([A-Za-z_][A-Za-z0-9_]*)\.\s*$/)
-  let actualStart = startPos
-  if (dotMatch && props.suggestionColumns && props.suggestionColumns.length > 0) {
-    actualStart = startPos
-  }
-  const newText = text.substring(0, actualStart) + item.insertText + after
-  const newPos = actualStart + item.insertText.length
+  const startPos = match ? before.length - match[0].length : cursorPos
+  const newText = text.substring(0, startPos) + item.insertText + after
   emit('input', newText)
   suggestions.value = []
   nextTick(() => {
-    const ta2 = document.getElementById('sql-editor-' + props.tabId) as HTMLTextAreaElement
-    if (ta2) {
-      ta2.value = newText
-      ta2.focus()
-      ta2.setSelectionRange(newPos, newPos)
-    }
+    const newPosObj = doc.posFromIndex(startPos + item.insertText.length)
+    cm!.setCursor(newPosObj)
+    cm!.focus()
   })
 }
 
-function onInput(e: Event) {
-  const t = e.target as HTMLTextAreaElement
-  emit('input', t.value)
-  updateSuggestions()
-}
-
-function onTextareaClick() {
-  updateSuggestions()
-  // 用户主动点击编辑器，取消选中状态恢复标记
-  shouldRestoreSelection.value = false
-}
-
-function onTextareaBlur() {
-  // 总是保存选中状态（包括光标位置）和内容
-  const ta = textareaRef.value
-  if (ta) {
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    savedSelection.value = { start, end }
-    savedContent.value = ta.value
-    // 只有当有选中内容时才标记需要恢复
-    shouldRestoreSelection.value = start !== end
-  }
-  suggestions.value = []
-}
-
-function onTextareaFocus() {
-  // 恢复选中状态（不清除，以便可以多次恢复）
-  const ta = textareaRef.value
-  if (ta && savedSelection.value && shouldRestoreSelection.value) {
-    // 只有当内容没有被外部修改时才恢复选中状态
-    if (ta.value === savedContent.value) {
-      ta.setSelectionRange(savedSelection.value.start, savedSelection.value.end)
-    }
-  }
-}
-
-function onTextareaSelect() {
-  // 用户手动选择文本，更新保存的选中状态
-  const ta = textareaRef.value
-  if (ta) {
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    savedSelection.value = { start, end }
-    savedContent.value = ta.value
-    // 用户主动选择，不需要恢复标记
-    shouldRestoreSelection.value = false
-  }
-}
-
-function restoreSelection() {
-  // 强制恢复选中状态
-  const ta = textareaRef.value
-  if (ta && savedSelection.value) {
-    ta.focus()
-    ta.setSelectionRange(savedSelection.value.start, savedSelection.value.end)
-  }
-}
-
-defineExpose({
-  restoreSelection
-})
-
-function onContainerClick() {
-  // 点击容器外部区域，保持 textarea 聚焦
-}
-
-function onKeydown(e: KeyboardEvent) {
+function handleKeydown(cm: CodeMirror.Editor, e: KeyboardEvent) {
   if (e.ctrlKey && e.key === 'Enter') {
     e.preventDefault()
+    e.stopPropagation()
     emit('run-command')
     return
   }
   if (e.ctrlKey && e.shiftKey && e.key.toUpperCase() === 'F') {
     e.preventDefault()
+    e.stopPropagation()
     emit('beautify')
     return
   }
@@ -367,113 +223,227 @@ function onKeydown(e: KeyboardEvent) {
   if (suggestions.value.length > 0) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
+      e.stopPropagation()
       selectedIndex.value = (selectedIndex.value + 1) % suggestions.value.length
       return
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
+      e.stopPropagation()
       selectedIndex.value = (selectedIndex.value - 1 + suggestions.value.length) % suggestions.value.length
       return
     }
-    if (e.key === 'Tab' || e.key === 'Enter') {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      e.stopPropagation()
+      if (selectedIndex.value >= 0 && selectedIndex.value < suggestions.value.length) {
+        applySuggestion(suggestions.value[selectedIndex.value])
+      }
+      return
+    }
+    if (e.key === 'Enter') {
       if (selectedIndex.value >= 0 && selectedIndex.value < suggestions.value.length) {
         e.preventDefault()
+        e.stopPropagation()
         applySuggestion(suggestions.value[selectedIndex.value])
         return
       }
     }
     if (e.key === 'Escape') {
       e.preventDefault()
+      e.stopPropagation()
       suggestions.value = []
       return
     }
   }
 }
 
-function hideSuggestions() {
-  suggestions.value = []
-}
-
-// 外部注入 SQL 更新事件监听
-let externalListener: ((e: Event) => void) | null = null
-let documentClickListener: ((e: Event) => void) | null = null
+watch(() => props.value, (newValue) => {
+  if (cm && newValue !== cm.getValue()) {
+    const cursor = cm.getCursor()
+    cm.setValue(newValue)
+    cm.setCursor(cursor)
+  }
+})
 
 onMounted(() => {
-  const el = document.getElementById('sql-editor-' + props.tabId) as HTMLTextAreaElement
-  if (el) textareaRef.value = el
-  if (props.tabId) {
-    externalListener = (e: Event) => {
-      const ce = e as CustomEvent
-      if (ce.detail && textareaRef.value) {
-        textareaRef.value.value = ce.detail
-        emit('input', ce.detail)
+  nextTick(() => {
+    if (editorRef.value) {
+      cm = CodeMirror(editorRef.value, {
+        mode: { name: 'sql', dialect: 'mysql' },
+        theme: 'eclipse',
+        lineNumbers: false,
+        indentUnit: 2,
+        tabSize: 4,
+        indentWithTabs: false,
+        readOnly: props.readonly,
+        lineWrapping: true,
+        cursorBlinkRate: 530,
+        styleSelectedText: true,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        highlightSelectionMatches: { showToken: /\w/, annotateScrollbar: true }
+      })
+
+      cm.setValue(props.value)
+
+      cm.on('change', () => {
+        emit('input', cm!.getValue())
+        updateSuggestions()
+      })
+
+      cm.on('blur', () => {
+        suggestions.value = []
+      })
+
+      cm.on('focus', () => {
+        updateSuggestions()
+      })
+
+      cm.on('keydown', (instance: CodeMirror.Editor, e: KeyboardEvent) => {
+        handleKeydown(instance, e)
+      })
+
+      if (props.tabId) {
+        const externalListener = (e: Event) => {
+          const ce = e as CustomEvent
+          if (ce.detail && cm) {
+            cm.setValue(ce.detail)
+            emit('input', ce.detail)
+          }
+        }
+        window.addEventListener('sqlide:update-editor-' + props.tabId, externalListener)
+        onBeforeUnmount(() => {
+          window.removeEventListener('sqlide:update-editor-' + props.tabId, externalListener)
+        })
       }
     }
-    window.addEventListener('sqlide:update-editor-' + props.tabId, externalListener)
-  }
-  documentClickListener = () => {
-    // 点击外部关闭提示
-    setTimeout(hideSuggestions, 0)
-  }
-  document.addEventListener('click', documentClickListener)
+  })
 })
 
 onBeforeUnmount(() => {
-  if (props.tabId && externalListener) {
-    window.removeEventListener('sqlide:update-editor-' + props.tabId, externalListener)
+  if (cm) {
+    cm.toTextArea()
+    cm = null
   }
-  if (documentClickListener) {
-    document.removeEventListener('click', documentClickListener)
+})
+
+const popupStyle = {
+  position: 'absolute' as const,
+  top: `${popupPos.value.top}px`,
+  left: `${popupPos.value.left}px`
+}
+
+function getSelectedSQL(): string {
+  if (!cm) return props.value
+  const selection = cm.getSelection()
+  if (selection && selection.trim()) {
+    return selection.trim()
   }
+  return props.value
+}
+
+defineExpose({
+  restoreSelection: () => {},
+  getSelectedSQL
 })
 </script>
 
 <style scoped>
 .sql-editor-container {
-  position: relative;
-  flex: 1 1 40%;
-  min-height: 150px;
-  max-height: none;
+  width: 100%;
   height: 100%;
-  overflow: auto;
-  background: #ffffff;
-  border-bottom: 1px solid #e4e7ed;
+  min-height: 120px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  background-color: #ffffff;
 }
 
-.sql-editor-wrapper {
-  position: relative;
+.sql-editor {
   width: 100%;
   height: 100%;
   min-height: 120px;
 }
 
-.sql-editor-textarea {
+:deep(.CodeMirror) {
   width: 100%;
-  min-height: 120px;
   height: 100%;
-  max-height: 100%;
-  padding: 10px 12px;
+  min-height: 120px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.8;
-  color: #303133;
-  background: #fafafa;
-  border: none;
-  resize: none;
+  background-color: #ffffff !important;
+}
+
+:deep(.CodeMirror-focused) {
   outline: none;
-  white-space: pre;
-  overflow: auto;
-  tab-size: 4;
+  border: 1px solid #409EFF !important;
 }
 
-.sql-editor-textarea:focus {
-  background: #ffffff;
+:deep(.CodeMirror-cursor) {
+  border-left: 2px solid #303133 !important;
 }
 
-.sql-editor-textarea[readonly] {
-  background: #f5f5f5;
-  cursor: not-allowed;
-  color: #606266;
+:deep(.CodeMirror-selected) {
+  background-color: rgba(64, 158, 255, 0.3) !important;
+  color: #000000 !important;
+}
+
+:deep(.CodeMirror-line) {
+  color: #000000 !important;
+}
+
+:deep(.cm-keyword) {
+  color: #409EFF !important;
+  font-weight: bold !important;
+}
+
+:deep(.cm-string) {
+  color: #67C23A !important;
+}
+
+:deep(.cm-comment) {
+  color: #909399 !important;
+  font-style: italic !important;
+}
+
+:deep(.cm-number) {
+  color: #E6A23C !important;
+}
+
+:deep(.cm-builtin) {
+  color: #9B59B6 !important;
+  font-weight: 500 !important;
+}
+
+:deep(.cm-variable-2) {
+  color: #000000 !important;
+}
+
+:deep(.cm-property) {
+  color: #000000 !important;
+}
+
+:deep(.cm-variable) {
+  color: #000000 !important;
+}
+
+:deep(.cm-operator) {
+  color: #000000 !important;
+}
+
+:deep(.cm-punctuation) {
+  color: #000000 !important;
+}
+
+:deep(.cm-bracket) {
+  color: #000000 !important;
+}
+
+:deep(.cm-tag) {
+  color: #000000 !important;
 }
 
 .suggestions-popup {

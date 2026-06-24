@@ -1,7 +1,7 @@
 <template>
   <div class="sqlide-root">
     <!-- 左侧对象树 -->
-    <div class="object-tree-panel">
+    <div class="object-tree-panel" :style="{ width: treePanelWidth + 'px' }">
       <div class="ot-search-wrap">
         <svg class="ot-search-icon" viewBox="0 0 24 24" width="14" height="14">
           <path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#78909c"/>
@@ -46,8 +46,15 @@
       </div>
     </div>
 
+    <!-- 树面板拖拽条 -->
+    <div 
+      class="resizer-tree" 
+      @mousedown.stop.prevent="startTreeResize"
+      :class="{ dragging: isTreeResizing }"
+    ></div>
+
     <!-- 右侧编辑+结果面板 -->
-    <div class="editor-result-panel">
+    <div class="editor-result-panel" :style="{ flex: '1 1 calc(100% - ' + treePanelWidth + 'px)' }">
       <!-- Tab Bar -->
       <div class="tab-bar">
         <div
@@ -64,7 +71,7 @@
       </div>
 
       <!-- Tab 内容 -->
-        <div class="tab-content">
+      <div class="tab-content">
         <template v-for="tab in tabList" :key="'content-' + tab.id">
           <!-- 查询类型 Tab -->
           <div v-show="activeTabId === tab.id && tab.kind === 'query'" class="tab-pane">
@@ -85,37 +92,49 @@
               @favorite="onTabFavorite(tab)"
               @beautify="onTabBeautify(tab)"
             />
-            <SqlEditor
-              :ref="(el: any) => { if (el) editorRefs[tab.id] = el }"
-              :value="(tab as any).sql || ''"
-              :tab-id="tab.id"
-              :suggestion-names="namesFor((tab as any).datasourceId, (tab as any).database)"
-              :suggestion-columns="columnsFor((tab as any).datasourceId, (tab as any).database)"
-              :readonly="!!(tab as any)._executing"
-              @input="(v: string) => onEditorInput(tab, v)"
-              @run-command="onTabRun(tab)"
-              @beautify="onTabBeautify(tab)"
-            />
-            <ResultTabs
-              :results="(tab as any)._results || []"
-              :history="(tab as any)._history || []"
-              :history-total="(tab as any)._historyTotal || 0"
-              :messages="(tab as any)._messages || []"
-              :explain="(tab as any)._explain || []"
-              :ddl-text="(tab as any)._ddlText || ''"
-              :favorites="favorites"
-              :sql="tab.sql || ''"
-              :datasource-id="(tab as any).datasourceId || ''"
-              :database="(tab as any)._effectiveDb || (tab as any).database || ''"
-              @close-result="(i: number) => onTabResultClose(tab, i)"
-              @close-all="onTabResultClear(tab)"
-              @replay="(sql: string) => onTabReplay(tab, sql)"
-              @refresh="refreshHistory"
-              @refresh-single="(rId: string, idx: number, sql: string) => onTabRefreshSingle(tab, rId, idx, sql)"
-              @load-history-page="(page: number, pageSize: number) => loadHistory(page, pageSize)"
-              @apply-favorite="(sql: string) => onTabInsertSql(tab, sql)"
-              @remove-favorite="(id: string) => removeFavorite(id)"
-            />
+            <div class="editor-wrapper" :style="{ height: editorHeight + '%' }">
+              <SqlEditor
+                :ref="(el: any) => { if (el) editorRefs[tab.id] = el }"
+                :value="(tab as any).sql || ''"
+                :tab-id="tab.id"
+                :suggestion-names="namesFor((tab as any).datasourceId, (tab as any).database)"
+                :suggestion-columns="columnsFor((tab as any).datasourceId, (tab as any).database)"
+                :readonly="!!(tab as any)._executing"
+                @input="(v: string) => onEditorInput(tab, v)"
+                @run-command="onTabRun(tab)"
+                @beautify="onTabBeautify(tab)"
+              />
+            </div>
+            
+            <!-- 编辑器与结果面板之间的拖拽条 -->
+            <div 
+              class="resizer-editor" 
+              @mousedown="startEditorResize"
+              :class="{ dragging: isEditorResizing }"
+            ></div>
+            
+            <div class="result-wrapper" :style="{ height: (100 - editorHeight) + '%' }">
+              <ResultTabs
+                :results="(tab as any)._results || []"
+                :history="(tab as any)._history || []"
+                :history-total="(tab as any)._historyTotal || 0"
+                :messages="(tab as any)._messages || []"
+                :explain="(tab as any)._explain || []"
+                :ddl-text="(tab as any)._ddlText || ''"
+                :favorites="favorites"
+                :sql="tab.sql || ''"
+                :datasource-id="(tab as any).datasourceId || ''"
+                :database="(tab as any)._effectiveDb || (tab as any).database || ''"
+                @close-result="(i: number) => onTabResultClose(tab, i)"
+                @close-all="onTabResultClear(tab)"
+                @replay="(sql: string) => onTabReplay(tab, sql)"
+                @refresh="refreshHistory"
+                @refresh-single="(rId: string, idx: number, sql: string) => onTabRefreshSingle(tab, rId, idx, sql)"
+                @load-history-page="(page: number, pageSize: number) => loadHistory(page, pageSize)"
+                @apply-favorite="(sql: string) => onTabInsertSql(tab, sql)"
+                @remove-favorite="(id: string) => removeFavorite(id)"
+              />
+            </div>
           </div>
           
           <!-- 表查看类型 Tab - 类似 Navicat 的打开表功能 -->
@@ -177,6 +196,79 @@ const tabRuntime = reactive<Record<string, any>>({})
 const originalRows = reactive<Record<string, any[]>>({})
 
 // 存储编辑器组件引用
+
+// 面板拖拽相关状态
+const treePanelWidth = ref(280)
+const editorHeight = ref(60)
+const isTreeResizing = ref(false)
+const isEditorResizing = ref(false)
+const startX = ref(0)
+const startY = ref(0)
+const startWidth = ref(0)
+const startHeight = ref(0)
+
+// 开始调整树面板宽度
+function startTreeResize(e: MouseEvent) {
+  isTreeResizing.value = true
+  startX.value = e.clientX
+  startWidth.value = treePanelWidth.value
+  
+  document.addEventListener('mousemove', onTreeResize)
+  document.addEventListener('mouseup', stopTreeResize)
+  document.body.style.cursor = 'col-resize'
+}
+
+function onTreeResize(e: MouseEvent) {
+  if (!isTreeResizing.value) return
+  
+  const deltaX = e.clientX - startX.value
+  const newWidth = startWidth.value + deltaX
+  
+  if (newWidth >= 150 && newWidth <= 600) {
+    treePanelWidth.value = newWidth
+  }
+}
+
+function stopTreeResize() {
+  isTreeResizing.value = false
+  document.removeEventListener('mousemove', onTreeResize)
+  document.removeEventListener('mouseup', stopTreeResize)
+  document.body.style.cursor = ''
+}
+
+// 开始调整编辑器高度
+function startEditorResize(e: MouseEvent) {
+  isEditorResizing.value = true
+  startY.value = e.clientY
+  startHeight.value = editorHeight.value
+  
+  document.addEventListener('mousemove', onEditorResize)
+  document.addEventListener('mouseup', stopEditorResize)
+  document.body.style.cursor = 'row-resize'
+}
+
+function onEditorResize(e: MouseEvent) {
+  if (!isEditorResizing.value) return
+  
+  const tabPane = document.querySelector('.tab-pane') as HTMLElement
+  if (!tabPane) return
+  
+  const rect = tabPane.getBoundingClientRect()
+  const deltaY = e.clientY - startY.value
+  const deltaPercent = (deltaY / rect.height) * 100
+  const newHeight = startHeight.value + deltaPercent
+  
+  if (newHeight >= 20 && newHeight <= 85) {
+    editorHeight.value = Math.round(newHeight * 10) / 10
+  }
+}
+
+function stopEditorResize() {
+  isEditorResizing.value = false
+  document.removeEventListener('mousemove', onEditorResize)
+  document.removeEventListener('mouseup', stopEditorResize)
+  document.body.style.cursor = ''
+}
 const editorRefs = reactive<Record<string, any>>({})
 
 function getEditorComponent(tabId: string) {
@@ -602,13 +694,13 @@ function onTabRun(tab: any) {
     return
   }
   
-  // 获取 textarea 元素
-  const textarea = document.getElementById('sql-editor-' + tab.id) as HTMLTextAreaElement
+  // 获取编辑器组件
+  const editor = editorRefs[tab.id]
   
-  // 获取编辑器中的选中SQL
+  // 获取编辑器中的选中SQL（优先使用选中内容）
   let selectedSql = ''
-  if (textarea) {
-    selectedSql = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd).trim()
+  if (editor && typeof editor.getSelectedSQL === 'function') {
+    selectedSql = editor.getSelectedSQL()
   }
   
   // 如果有选中SQL，执行选中的SQL；否则执行全部SQL
@@ -1409,6 +1501,77 @@ onMounted(async () => {
   height: 1px;
   background: #e0e0e0;
   margin: 4px 0;
+}
+
+/* 树面板拖拽条 */
+.resizer-tree {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  background: #e0e0e0;
+  transition: background 0.15s;
+  position: relative;
+  align-self: stretch;
+  z-index: 10;
+}
+
+.resizer-tree:hover {
+  background: #1976d2;
+}
+
+.resizer-tree.dragging {
+  background: #1976d2;
+  width: 8px;
+}
+
+/* 编辑器拖拽条 */
+.resizer-editor {
+  height: 6px;
+  cursor: row-resize;
+  background: #e0e0e0;
+  transition: background 0.15s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resizer-editor:hover {
+  background: #1976d2;
+}
+
+.resizer-editor.dragging {
+  background: #1976d2;
+  height: 8px;
+}
+
+.resizer-editor::before {
+  content: '';
+  width: 20px;
+  height: 2px;
+  background: #909399;
+  border-radius: 1px;
+  transition: background 0.15s;
+}
+
+.resizer-editor:hover::before,
+.resizer-editor.dragging::before {
+  background: #ffffff;
+}
+
+/* 编辑器包装器 */
+.editor-wrapper {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 结果包装器 */
+.result-wrapper {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
 }
 
 </style>

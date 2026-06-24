@@ -264,10 +264,10 @@ func (s *SQLService) ExecuteWithCancel(ds *model.Datasource, dbName, sql string,
 	if len(stmts) == 0 {
 		return "", []*ExecResult{{Success: true, Message: "SQL为空"}}, nil
 	}
-	
+
 	ec := NewExecutionContext(ds.DatasourceID, sql)
 	defer ec.Done()
-	
+
 	results, err := s.executeStatements(ec.Ctx, ds, dbName, stmts, ignoreRisk, userId, username)
 	if err != nil {
 		if ec.Ctx.Err() == context.Canceled {
@@ -275,7 +275,7 @@ func (s *SQLService) ExecuteWithCancel(ds *model.Datasource, dbName, sql string,
 		}
 		return ec.ID, results, err
 	}
-	
+
 	return ec.ID, results, nil
 }
 
@@ -320,7 +320,7 @@ func (s *SQLService) GetDatabasesWithSystem(ds *model.Datasource, includeSystem 
 	case dbtype.TypeMySQL, dbtype.TypeTiDB:
 		var rows *sql.Rows
 		var err error
-		
+
 		// 优先使用 SHOW DATABASES 获取所有数据库（包括特殊数据库如 __cdb_recycle_bin__）
 		rows, err = conn.DB.Query("SHOW DATABASES")
 		if err != nil {
@@ -396,7 +396,7 @@ func (s *SQLService) GetTables(ds *model.Datasource, dbName string) ([]map[strin
 	var query string
 	switch strings.ToLower(ds.DBType) {
 	case dbtype.TypeMySQL, dbtype.TypeTiDB:
-		query = fmt.Sprintf("SELECT TABLE_NAME as `name`, TABLE_TYPE as `type`, TABLE_ROWS as `rows`, ROUND((DATA_LENGTH + INDEX_LENGTH)/1024/1024, 2) as `size_mb` FROM information_schema.TABLES WHERE TABLE_SCHEMA = '%s' ORDER BY TABLE_TYPE, TABLE_NAME", dbName)
+		query = fmt.Sprintf("SELECT TABLE_NAME as `name`, TABLE_TYPE as `type`, TABLE_ROWS as `rows`, ROUND((IFNULL(DATA_LENGTH, 0) + IFNULL(INDEX_LENGTH, 0))/1024/1024, 2) as `size_mb` FROM information_schema.TABLES WHERE TABLE_SCHEMA = '%s' ORDER BY TABLE_TYPE, TABLE_NAME", dbName)
 	case dbtype.TypeSQLite:
 		// SQLite: 从指定 schema 中查询所有对象类型
 		schema := dbName
@@ -555,16 +555,33 @@ func (s *SQLService) getSQLiteObjects(conn *sql.DB, schema string) ([]map[string
 			"schema":  schema,
 		}
 		if r.objType == "table" {
-			if cnt, ok := tableStats[r.name]; ok {
-				item["rows"] = cnt
+			var rowCount int64 = 0
+			if cnt, ok := tableStats[r.name]; ok && cnt > 0 {
+				rowCount = cnt
 			} else {
-				item["rows"] = int64(0)
+				countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s.%s", schema, r.name)
+				countRow := conn.QueryRow(countQuery)
+				if countRow != nil {
+					if err := countRow.Scan(&rowCount); err != nil {
+						rowCount = 0
+					}
+				}
 			}
+			item["rows"] = rowCount
+
+			var sizeMb float64 = 0
 			if size, ok := tableSizes[r.name]; ok && size > 0 {
-				item["sizeMb"] = size
+				sizeMb = size
 			} else {
-				item["sizeMb"] = float64(0)
+				pageCountQuery := fmt.Sprintf("PRAGMA %s.page_count", schema)
+				var pageCount int64 = 0
+				if pageRow := conn.QueryRow(pageCountQuery); pageRow != nil {
+					if err := pageRow.Scan(&pageCount); err == nil && pageCount > 0 {
+						sizeMb = float64(pageCount*pageSize) / 1024 / 1024
+					}
+				}
 			}
+			item["sizeMb"] = sizeMb
 		}
 		result = append(result, item)
 	}
@@ -1191,9 +1208,9 @@ func (s *SQLService) GetFullTree(ds *model.Datasource) ([]map[string]interface{}
 					"table":        name,
 					"database":     db,
 					"datasourceId": ds.DatasourceID,
-					"tblName":  obj["tblName"],
-					"rows":     obj["rows"],
-					"sizeMb":   obj["sizeMb"],
+					"tblName":      obj["tblName"],
+					"rows":         obj["rows"],
+					"sizeMb":       obj["sizeMb"],
 				}
 				if t == "table" || t == "view" {
 					if sub := s.buildTableChildren(ds, db, name); len(sub) > 0 {
@@ -1398,23 +1415,23 @@ func (s *SQLService) Explain(ds *model.Datasource, dbName, sql string) (result [
 		return nil, err
 	}
 	isSQLite := strings.ToLower(ds.DBType) == dbtype.TypeSQLite
-	
+
 	sqlStatements := strings.Split(strings.TrimSpace(sql), ";")
 	result = make([]*ExecResult, 0, len(sqlStatements))
-	
+
 	for _, stmt := range sqlStatements {
 		stmt = strings.TrimSpace(stmt)
 		if stmt == "" {
 			continue
 		}
-		
+
 		var query string
 		if isSQLite {
 			query = "EXPLAIN QUERY PLAN " + stmt
 		} else {
 			query = "EXPLAIN " + stmt
 		}
-		
+
 		rows, err := conn.DB.Query(query)
 		if err != nil {
 			result = append(result, &ExecResult{
@@ -1424,7 +1441,7 @@ func (s *SQLService) Explain(ds *model.Datasource, dbName, sql string) (result [
 			})
 			continue
 		}
-		
+
 		cols, _ := rows.Columns()
 		dataRows := []map[string]interface{}{}
 		for rows.Next() {
@@ -1447,7 +1464,7 @@ func (s *SQLService) Explain(ds *model.Datasource, dbName, sql string) (result [
 			dataRows = append(dataRows, row)
 		}
 		rows.Close()
-		
+
 		result = append(result, &ExecResult{
 			Success:      true,
 			Columns:      cols,

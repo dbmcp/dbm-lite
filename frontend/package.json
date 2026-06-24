@@ -19,6 +19,7 @@
     "element-plus": "^2.4.4",
     "monaco-editor": "^0.55.1",
     "pinia": "^2.1.7",
+    "sql-formatter": "^15.8.2",
     "vue": "^3.4.0",
     "vue-codemirror": "^4.0.6",
     "vue-echarts": "^6.6.1",
