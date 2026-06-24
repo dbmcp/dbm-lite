@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
 @Author: DB老王
@@ -11,24 +11,24 @@
       <div class="toolbar">
         <el-input v-model="keyword" placeholder="搜索插件名称" clearable style="width:260px;" @change="loadList" />
         <el-button type="primary" :icon="PlusIcon" @click="openDialog()">新建插件</el-button>
-        <el-button :icon="RefreshIcon" @click="loadList">刷新</el-button>
+        <el-button @click="loadList"><span class="refresh-icon">⟳</span>刷新</el-button>
         <ColumnToggle v-model="colVisible" :columns="columns" />
       </div>
 
       <el-table :data="list" style="width:100%;" v-loading="loading" stripe :default-sort="{ prop: 'createdAt', order: 'descending' }">
-        <el-table-column prop="name" label="插件名称" sortable :resizable="true" v-if="colVisible.name" min-width="200" />
-        <el-table-column prop="version" label="版本" sortable :resizable="true" v-if="colVisible.version" min-width="120" />
+        <el-table-column prop="name" label="插件名称" sortable :resizable="true" v-if="colVisible.name" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="version" label="版本" sortable :resizable="true" v-if="colVisible.version" min-width="120" show-overflow-tooltip />
         <el-table-column prop="description" label="描述" :resizable="true" v-if="colVisible.description" min-width="220" show-overflow-tooltip />
         <el-table-column prop="params" label="参数" :resizable="true" v-if="colVisible.params" min-width="260" show-overflow-tooltip />
         <el-table-column prop="downloadUrl" label="下载地址" :resizable="true" v-if="colVisible.downloadUrl" min-width="240" show-overflow-tooltip />
-        <el-table-column label="状态" sortable :resizable="true" v-if="colVisible.status" min-width="100" prop="status">
+        <el-table-column label="状态" sortable :resizable="true" v-if="colVisible.status" min-width="100" prop="status" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag v-if="row.status === 'active'" type="success" size="small">启用</el-tag>
             <el-tag v-else type="info" size="small">禁用</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" sortable :resizable="true" v-if="colVisible.createdAt" min-width="180" />
-        <el-table-column label="操作" min-width="220" fixed="right">
+        <el-table-column prop="createdAt" label="创建时间" sortable :resizable="true" v-if="colVisible.createdAt" min-width="180" show-overflow-tooltip />
+        <el-table-column label="操作" min-width="220" fixed="right" show-overflow-tooltip>
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="downloadPlugin(row)" :loading="downloading === row.pluginId">下载</el-button>
             <el-button size="small" @click="openDialog(row)">编辑</el-button>
@@ -42,7 +42,7 @@
           v-model:current-page="current"
           v-model:page-size="pageSize"
           :total="total"
-          :page-sizes="[10, 20, 50]"
+          :page-sizes="[100, 200, 500, 1000]"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadList"
           @size-change="loadList"
@@ -98,7 +98,7 @@ const loading = ref(false)
 const list = ref<any[]>([])
 const total = ref(0)
 const current = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(100)
 const keyword = ref('')
 const downloading = ref('')
 

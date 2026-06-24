@@ -73,7 +73,7 @@
         <p style="margin:0 0 8px 0;"><b>技术栈：</b>Go + Gin + GORM + SQLite · Vue3 + Element Plus</p>
         <p style="margin:0 0 8px 0;"><b>发布日期：</b>2026</p>
         <el-divider style="margin:12px 0;" />
-        <p style="margin:0;color:#909399;font-size:12px;">© 2026 DB老王 版权所有</p>
+        <p style="margin:0;color:#909399;font-size:12px;">© 2026 DB老王 </p>
       </div>
     </el-dialog>
   </div>

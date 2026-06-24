@@ -31,28 +31,28 @@
               <el-option label="执行插件" value="plugin.execute" />
             </el-select>
             <el-button type="primary" @click="loadPlatformList" :icon="SearchIcon">搜索</el-button>
-            <el-button @click="loadPlatformList" :icon="RefreshIcon">刷新</el-button>
+            <el-button @click="loadPlatformList"><span class="refresh-icon">⟳</span>刷新</el-button>
             <ColumnToggle v-model="platColVisible" :columns="platColumns" />
           </div>
 
           <el-table :data="platformList" style="width:100%;margin-top:12px;" v-loading="platformLoading" stripe max-height="60vh" :default-sort="{ prop: 'createdAt', order: 'descending' }">
-            <el-table-column prop="username" label="操作人" sortable :resizable="true" v-if="platColVisible.username" min-width="120" />
-            <el-table-column prop="action" label="操作类型" sortable :resizable="true" v-if="platColVisible.action" min-width="180">
+            <el-table-column prop="username" label="操作人" sortable :resizable="true" v-if="platColVisible.username" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="action" label="操作类型" sortable :resizable="true" v-if="platColVisible.action" min-width="180" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag size="small">{{ row.action }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="target" label="目标对象" sortable :resizable="true" v-if="platColVisible.target" min-width="130" />
+            <el-table-column prop="target" label="目标对象" sortable :resizable="true" v-if="platColVisible.target" min-width="130" show-overflow-tooltip />
             <el-table-column prop="targetId" label="对象ID" sortable :resizable="true" v-if="platColVisible.targetId" min-width="160" show-overflow-tooltip />
             <el-table-column prop="detail" label="详情" :resizable="true" v-if="platColVisible.detail" min-width="260" show-overflow-tooltip />
-            <el-table-column prop="ipAddress" label="IP" sortable :resizable="true" v-if="platColVisible.ipAddress" min-width="140" />
-            <el-table-column label="状态" sortable :resizable="true" v-if="platColVisible.status" min-width="100" prop="status">
+            <el-table-column prop="ipAddress" label="IP" sortable :resizable="true" v-if="platColVisible.ipAddress" min-width="140" show-overflow-tooltip />
+            <el-table-column label="状态" sortable :resizable="true" v-if="platColVisible.status" min-width="100" prop="status" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag size="small" v-if="row.status === 'success'" type="success">成功</el-tag>
                 <el-tag size="small" v-else type="danger">失败</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="createdAt" label="时间" sortable :resizable="true" v-if="platColVisible.createdAt" min-width="180" />
+            <el-table-column prop="createdAt" label="时间" sortable :resizable="true" v-if="platColVisible.createdAt" min-width="180" show-overflow-tooltip />
           </el-table>
 
           <div style="margin-top:16px;display:flex;justify-content:flex-end;">
@@ -60,7 +60,7 @@
               v-model:current-page="platformCurrent"
               v-model:page-size="pageSize"
               :total="platformTotal"
-              :page-sizes="[10, 20, 50, 100]"
+              :page-sizes="[100, 200, 500, 1000]"
               layout="total, sizes, prev, pager, next, jumper"
               @current-change="loadPlatformList"
               @size-change="loadPlatformList"
@@ -82,28 +82,28 @@
               <el-option label="删除备份" value="backup.delete" />
             </el-select>
             <el-button type="primary" @click="loadDbList" :icon="SearchIcon">搜索</el-button>
-            <el-button @click="loadDbList" :icon="RefreshIcon">刷新</el-button>
+            <el-button @click="loadDbList"><span class="refresh-icon">⟳</span>刷新</el-button>
             <ColumnToggle v-model="dbColVisible" :columns="dbColumns" />
           </div>
 
           <el-table :data="dbList" style="width:100%;margin-top:12px;" v-loading="dbLoading" stripe max-height="60vh" :default-sort="{ prop: 'createdAt', order: 'descending' }">
-            <el-table-column prop="username" label="操作人" sortable :resizable="true" v-if="dbColVisible.username" min-width="120" />
-            <el-table-column prop="action" label="操作类型" sortable :resizable="true" v-if="dbColVisible.action" min-width="180">
+            <el-table-column prop="username" label="操作人" sortable :resizable="true" v-if="dbColVisible.username" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="action" label="操作类型" sortable :resizable="true" v-if="dbColVisible.action" min-width="180" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag size="small" :type="row.action === 'sql.execute' ? 'warning' : ''">{{ row.action }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="target" label="目标对象" sortable :resizable="true" v-if="dbColVisible.target" min-width="130" />
+            <el-table-column prop="target" label="目标对象" sortable :resizable="true" v-if="dbColVisible.target" min-width="130" show-overflow-tooltip />
             <el-table-column prop="targetId" label="对象ID" sortable :resizable="true" v-if="dbColVisible.targetId" min-width="160" show-overflow-tooltip />
             <el-table-column prop="detail" label="详情" :resizable="true" v-if="dbColVisible.detail" min-width="260" show-overflow-tooltip />
-            <el-table-column prop="ipAddress" label="IP" sortable :resizable="true" v-if="dbColVisible.ipAddress" min-width="140" />
-            <el-table-column label="状态" sortable :resizable="true" v-if="dbColVisible.status" min-width="100" prop="status">
+            <el-table-column prop="ipAddress" label="IP" sortable :resizable="true" v-if="dbColVisible.ipAddress" min-width="140" show-overflow-tooltip />
+            <el-table-column label="状态" sortable :resizable="true" v-if="dbColVisible.status" min-width="100" prop="status" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-tag size="small" v-if="row.status === 'success'" type="success">成功</el-tag>
                 <el-tag size="small" v-else type="danger">失败</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="createdAt" label="时间" sortable :resizable="true" v-if="dbColVisible.createdAt" min-width="180" />
+            <el-table-column prop="createdAt" label="时间" sortable :resizable="true" v-if="dbColVisible.createdAt" min-width="180" show-overflow-tooltip />
           </el-table>
 
           <div style="margin-top:16px;display:flex;justify-content:flex-end;">
@@ -111,7 +111,7 @@
               v-model:current-page="dbCurrent"
               v-model:page-size="pageSize"
               :total="dbTotal"
-              :page-sizes="[10, 20, 50, 100]"
+              :page-sizes="[100, 200, 500, 1000]"
               layout="total, sizes, prev, pager, next, jumper"
               @current-change="loadDbList"
               @size-change="loadDbList"
@@ -160,7 +160,7 @@ const dbColVisible = reactive<Record<string, boolean>>({
 })
 
 const activeCategory = ref('platform')
-const pageSize = ref(20)
+const pageSize = ref(100)
 
 const platformList = ref<any[]>([])
 const platformTotal = ref(0)

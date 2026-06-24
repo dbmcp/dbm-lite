@@ -34,6 +34,10 @@ const (
 	ModuleProject    = "project"
 	ModuleOps        = "ops"
 	ModulePlatform   = "platform"
+	ModuleImportExport = "import_export"
+	ModuleSQLAudit     = "sql_audit"
+	ModuleSensitiveData = "sensitive_data"
+	ModuleMigration     = "migration"
 )
 
 // 动作类型常量

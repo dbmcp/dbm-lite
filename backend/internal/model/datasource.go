@@ -7,8 +7,86 @@
 package model
 
 import (
+	"database/sql/driver"
+	"fmt"
+	"strings"
 	"time"
 )
+
+type DateTime time.Time
+
+func (dt DateTime) MarshalJSON() ([]byte, error) {
+	t := time.Time(dt)
+	if t.IsZero() {
+		return []byte(`""`), nil
+	}
+	return []byte(`"` + t.Format("2006-01-02 15:04:05") + `"`), nil
+}
+
+func (dt *DateTime) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	if s == "" {
+		*dt = DateTime{}
+		return nil
+	}
+	t, err := time.Parse("2006-01-02 15:04:05", s)
+	if err != nil {
+		t2, err2 := time.Parse(time.RFC3339, s)
+		if err2 != nil {
+			return err
+		}
+		*dt = DateTime(t2)
+		return nil
+	}
+	*dt = DateTime(t)
+	return nil
+}
+
+func (dt DateTime) String() string {
+	t := time.Time(dt)
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
+func (dt DateTime) IsZero() bool {
+	return time.Time(dt).IsZero()
+}
+
+func (dt DateTime) Format(layout string) string {
+	t := time.Time(dt)
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(layout)
+}
+
+func (dt *DateTime) Scan(value interface{}) error {
+	if value == nil {
+		*dt = DateTime{}
+		return nil
+	}
+	switch v := value.(type) {
+	case time.Time:
+		*dt = DateTime(v)
+	case string:
+		return dt.UnmarshalJSON([]byte(`"` + v + `"`))
+	case []byte:
+		return dt.UnmarshalJSON([]byte(`"` + string(v) + `"`))
+	default:
+		return fmt.Errorf("unsupported scan type for DateTime: %T", value)
+	}
+	return nil
+}
+
+func (dt DateTime) Value() (driver.Value, error) {
+	t := time.Time(dt)
+	if t.IsZero() {
+		return nil, nil
+	}
+	return t, nil
+}
 
 type Datasource struct {
 	DatasourceID   string     `gorm:"column:datasource_id;primaryKey;size:64" json:"datasourceId"`
@@ -37,15 +115,17 @@ type Datasource struct {
 	Env            string     `gorm:"column:env;size:32" json:"env"`
 	Remark         string     `gorm:"column:remark;size:512" json:"remark"`
 	CreatedBy      string     `gorm:"column:created_by;size:64" json:"createdBy"`
-	CreatedAt      time.Time  `gorm:"column:created_at;index" json:"createdAt"`
-	UpdatedAt      time.Time  `gorm:"column:updated_at" json:"updatedAt"`
-	LastConnTestAt *time.Time `gorm:"column:last_conn_test_at" json:"lastConnTestAt,omitempty"`
+	CreatedByName  string     `gorm:"-" json:"createdByName"`
+	CreatedAt      DateTime   `gorm:"column:created_at" json:"createdAt"`
+	UpdatedAt      DateTime   `gorm:"column:updated_at" json:"updatedAt"`
+	LastConnTestAt *DateTime  `gorm:"column:last_conn_test_at" json:"lastConnTestAt,omitempty"`
 	ConnStatus     string     `gorm:"column:conn_status;size:32" json:"connStatus"`
 	ConnLatencyMs  int64      `gorm:"column:conn_latency_ms;default:0" json:"connLatencyMs"`
 	Status         string     `gorm:"column:status;size:32;default:'active'" json:"status"`
+	Timeout        int        `gorm:"column:timeout;default:0" json:"timeout,omitempty"`
 	OwnerID        string     `gorm:"column:owner_id;size:64" json:"ownerId"`
 	OrgID          string     `gorm:"column:org_id;size:64" json:"orgId"`
-	LastUseTime    *time.Time `gorm:"column:last_use_time" json:"lastUseTime,omitempty"`
+	LastUseTime    *DateTime  `gorm:"column:last_use_time" json:"lastUseTime,omitempty"`
 }
 
 func (Datasource) TableName() string { return "datasources" }

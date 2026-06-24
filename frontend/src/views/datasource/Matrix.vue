@@ -12,7 +12,7 @@
         <span class="subtitle-text">按环境分组展示</span>
       </div>
       <div class="header-actions">
-        <el-button :icon="RefreshIcon" @click="loadList">刷新</el-button>
+        <el-button @click="loadList"><span class="refresh-icon">⟳</span>刷新</el-button>
         <el-button type="primary" :icon="PlusIcon" v-if="userStore.isAdmin" @click="$emit('create')">新建数据源</el-button>
       </div>
     </div>
@@ -66,7 +66,7 @@
                 :loading="refreshingConnId === ds.datasourceId"
                 :icon="CheckCircle"
               >测试</el-button>
-              <el-button size="small" @click.stop="goWorkbench(ds)" :icon="Terminal">SQL</el-button>
+              <el-button size="small" @click.stop="goSqlide(ds)" :icon="Terminal">SQL</el-button>
               <el-button size="small" type="primary" @click.stop="$emit('edit', ds)" :icon="EditIcon">编辑</el-button>
               <el-button size="small" type="danger" @click.stop="handleDelete(ds)" :icon="DeleteIcon">删除</el-button>
             </div>
@@ -220,9 +220,9 @@ async function refreshConn(row: any) {
   }
 }
 
-function goWorkbench(row: any) {
+function goSqlide(row: any) {
   dsStore.setDatasource(row.datasourceId, row.name)
-  router.push('/sql/workbench')
+  router.push('/sql/sqlide')
 }
 
 function handleDelete(row: any) {

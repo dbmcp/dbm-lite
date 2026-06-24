@@ -1,0 +1,203 @@
+/* ============================================================
+   DBM-Lite: 响应式文本缩写全局样式
+   - 当元素空间不足时自动缩写（末尾添加省略号
+   - 通过 title 属性实现鼠标悬停显示完整文本
+   - 全局使用 ResizeObserver 动态监测
+   ============================================================ */
+
+/* ===== 通用省略号类（单行省略 =====
+   任意元素添加 .text-ellipsis 类即自动启用文本省略 */
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+/* flex 容器中的省略号 */
+.text-ellipsis-flex {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0; /* 关键：flex 子项需显式声明最小宽度 */
+  display: inline-block;
+}
+
+/* ============================================================
+   菜单：顶部菜单和侧边栏菜单
+   ============================================================ */
+
+/* 顶部菜单（horizontal menu） */
+.el-menu--horizontal > .el-menu-item,
+.el-menu--horizontal > .el-sub-menu .el-sub-menu__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px; /* 响应式：较宽屏幕给更多空间 */
+}
+
+/* 侧边栏菜单 */
+.el-menu--collapse .el-menu-item,
+.el-menu--collapse .el-sub-menu__title,
+.el-menu--vertical .el-menu-item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 菜单项内的 span 文本 */
+.el-menu-item .el-menu-item__title,
+.el-menu-item span,
+.el-sub-menu__title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: calc(100% - 40px); /* 保留 icon 空间 */
+  vertical-align: middle;
+}
+
+/* ============================================================
+   页面标题与副标题
+   ============================================================ */
+
+.page-header .page-title,
+.page-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.page-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 100%;
+}
+
+/* ============================================================
+   表格列：表格单元格内容
+   ============================================================ */
+
+.el-table .cell,
+.el-table th .cell,
+.el-table td .cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 表格内的 span 文本 */
+.el-table .cell span,
+.el-table .cell a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* ============================================================
+   Tabs 标签页：标签文本 */
+
+.el-tabs__item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+/* ============================================================
+   下拉菜单 / Dropdown
+   ============================================================ */
+
+.el-dropdown-menu__item,
+.el-select-dropdown__item span,
+.el-select-dropdown__item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   按钮中的文字
+   ============================================================ */
+
+.el-button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   响应式断点：根据窗口宽度调整
+   - 小屏幕：更紧凑的表格列、更短的 tab 文字、更小的菜单宽度 */
+
+@media (max-width: 1440px) {
+  /* 顶部菜单更短 */
+  .el-menu--horizontal > .el-menu-item {
+    max-width: 140px;
+    padding: 0 12px !important;
+  }
+  .el-tabs__item {
+    max-width: 160px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .el-menu--horizontal > .el-menu-item {
+    max-width: 120px;
+    padding: 0 10px !important;
+  }
+  .el-tabs__item {
+    max-width: 140px;
+  }
+}
+
+@media (max-width: 1024px) {
+  /* 平板/小屏幕：进一步压缩 */
+  .el-menu--horizontal > .el-menu-item {
+    max-width: 110px;
+    padding: 0 8px !important;
+  }
+  .el-tabs__item {
+    max-width: 120px;
+  }
+  .page-title {
+    font-size: 18px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* 移动端/平板横屏 */
+  .el-menu--horizontal > .el-menu-item {
+    max-width: 90px;
+    padding: 0 6px !important;
+  }
+  .el-tabs__item {
+    max-width: 100px;
+  }
+  .page-title {
+    font-size: 16px !important;
+  }
+  /* 侧边栏自适应宽度 */
+  .el-aside {
+    width: 180px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  /* 超小屏幕：菜单进一步压缩 */
+  .el-menu--horizontal > .el-menu-item {
+    max-width: 80px;
+    padding: 0 4px !important;
+  }
+  .el-tabs__item {
+    max-width: 80px;
+  }
+}

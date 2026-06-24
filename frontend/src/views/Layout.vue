@@ -1,9 +1,3 @@
-<!--
-@Project: DBM-Lite 轻量级全域数据库管控平台
-@Version: v0.1.0
-@Author: DB老王
-@License: Apache-2.0 OR MulanPSL-2.0
--->
 <template>
   <el-container :class="['layout', 'layout-' + layoutMode]" style="height: 100vh;">
     <el-aside v-if="layoutMode === 'side'" :width="asideWidth" style="background:#001529;transition:width .3s;display:flex;flex-direction:column;">
@@ -59,51 +53,76 @@
 
     <el-container>
       <el-header style="background:#fff;border-bottom:1px solid #e4e7ed;display:flex;align-items:center;justify-content:space-between;padding:0 20px;">
-        <div style="display:flex;align-items:center;gap:16px;">
+        <div style="display:flex;align-items:center;gap:16px;flex:1;min-width:0;">
           <el-button v-if="layoutMode === 'side'" link @click="collapsed = !collapsed">
             <el-icon :size="20"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
           </el-button>
-          <span v-if="layoutMode === 'side'" style="font-size:16px;color:#303133;">{{ route.meta.title }}</span>
 
-          <el-menu
-            v-if="layoutMode === 'top'"
-            :default-active="route.path"
-            mode="horizontal"
-            :menu-trigger="click"
-            router
-            style="border-bottom:0;flex:1;"
-          >
-            <template v-for="item in topMenu" :key="'top-' + item.index">
-              <el-menu-item :index="item.index">
-                <el-icon><component :is="item.icon" /></el-icon>
-                <span style="margin-left:6px;">{{ item.title }}</span>
-              </el-menu-item>
+          <!-- 顶部布局：自定义菜单条（支持自适应折叠到下拉菜单） -->
+          <div v-if="layoutMode === 'top'" ref="topBarRef" class="top-menu-bar">
+            <!-- 测量用隐藏节点：与实际菜单项结构完全一致，用于获取真实宽度 -->
+            <div class="measure-layer" aria-hidden="true">
+              <span
+                v-for="(item, idx) in composedTopMenu"
+                :key="'m-' + item.index"
+                :ref="(el: any) => setMeasureNode(idx, el)"
+                class="top-menu-item"
+              >
+                <el-icon class="tmi-icon"><component :is="item.icon" /></el-icon>
+                <span class="tmi-text">{{ item.title }}</span>
+              </span>
+            </div>
+
+            <!-- 可见的菜单项 -->
+            <template v-for="(item, idx) in visibleTopMenu" :key="'vis-' + item.index">
+              <el-tooltip :content="item.title" placement="bottom" :disabled="!item.isTruncated">
+                <a
+                  class="top-menu-item"
+                  :class="{ 'is-active': isActive(item.index) }"
+                  @click="goTo(item.index)"
+                >
+                  <el-icon class="tmi-icon" :color="item.iconColor || '#303133'">
+                    <component :is="item.icon" />
+                  </el-icon>
+                  <span class="tmi-text" :title="item.title">{{ item.displayTitle }}</span>
+                </a>
+              </el-tooltip>
             </template>
 
-            <template v-for="item in currentDomainMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-domain-' + item.index">
-              <el-menu-item :index="item.index">
-                <el-icon :color="currentDomainColor"><component :is="item.icon" /></el-icon>
-                <span :style="{ color: currentDomainColor, marginLeft: '6px' }">{{ item.title }}</span>
-              </el-menu-item>
-            </template>
-
-            <template v-for="item in bottomMenu.filter((m:any)=>!m.visible||m.visible())" :key="'top-btm-' + item.index">
-              <el-menu-item :index="item.index">
-                <el-icon><component :is="item.icon" /></el-icon>
-                <span style="margin-left:6px;">{{ item.title }}</span>
-              </el-menu-item>
-            </template>
-          </el-menu>
+            <!-- 折叠下拉菜单 -->
+            <el-dropdown
+              v-if="collapsedTopMenu.length > 0"
+              trigger="click"
+              @command="(c: string) => goTo(c)"
+              placement="bottom-end"
+            >
+              <a class="top-menu-item more-item">
+                <el-icon :size="20" class="more-dots"><MoreFilled /></el-icon>
+              </a>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-for="item in collapsedTopMenu"
+                    :key="'col-' + item.index"
+                    :command="item.index"
+                    :disabled="isActive(item.index)"
+                  >
+                    <span>{{ item.title }}</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
 
-        <div style="display:flex;align-items:center;gap:12px;">
-          <el-tooltip content="切换布局" placement="bottom">
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+          <el-tooltip content="切换布局" placement="bottom-end">
             <el-button link @click="toggleLayout">
               <el-icon :size="18"><Menu v-if="layoutMode === 'side'" /><Grid v-else /></el-icon>
             </el-button>
           </el-tooltip>
 
-          <el-dropdown trigger="hover" @command="handleDomainCommand" placement="bottom" hide-on-click>
+          <el-dropdown trigger="click" @command="handleDomainCommand" placement="bottom-end" hide-on-click>
             <span :style="{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', border: '1px solid', borderRadius: '6px', borderColor: currentDomainColor + '50', background: currentDomainColor + '10' }">
               <span :style="{ color: currentDomainColor }">●</span>
               <span :style="{ color: currentDomainColor, fontWeight: 500, fontSize: '13px' }">{{ currentDomainName }}</span>
@@ -125,7 +144,7 @@
             </template>
           </el-dropdown>
 
-          <el-dropdown trigger="hover" @command="handleCommand" placement="bottom">
+          <el-dropdown trigger="click" @command="handleCommand" placement="bottom-end">
             <span style="cursor:pointer;display:flex;align-items:center;gap:8px;color:#606266;">
               <el-avatar :size="32" :style="{ background: currentDomainColor }">{{ userStore.displayName.charAt(0).toUpperCase() }}</el-avatar>
               <span>{{ userStore.displayName }}</span>
@@ -141,32 +160,21 @@
         </div>
       </el-header>
 
-      <el-main v-if="layoutMode === 'top' && route.meta.title" style="padding:8px 20px 0;background:#f5f7fa;">
-        <span style="font-size:16px;color:#303133;font-weight:500;">{{ route.meta.title }}</span>
+      <el-main style="padding:0;background:#ffffff;overflow:hidden;">
+        <router-view />
       </el-main>
-
-      <el-main style="padding:12px 20px;background:#f5f7fa;overflow:auto;">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </el-main>
-
-      <div class="layout-footer">
-        DBM-Lite v0.1.0 © DB老王
-      </div>
     </el-container>
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   DataLine, Fold, Expand, ArrowDown,
-  EditPen, Coin, Folder, Monitor, MagicStick, User, Document, Setting, Menu, Grid, Lock
+  EditPen, Coin, Folder, Monitor, Document, Setting, Menu, Grid, Lock, DocumentChecked,
+  Upload, Histogram, RefreshRight, Management, View, MoreFilled
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
@@ -182,13 +190,21 @@ const userStore = useUserStore()
 const collapsed = ref(false)
 const asideWidth = computed(() => (collapsed.value ? '64px' : '220px'))
 
-const layoutMode = ref<'side' | 'top'>((localStorage.getItem(LAYOUT_KEY) as 'side' | 'top') || 'side')
+const DEFAULT_LAYOUT: 'side' | 'top' = 'top'
 
-const opsColor = '#409eff'
-const ops2Color = '#2e6ba8'
+function pickInitialLayout(): 'side' | 'top' {
+  const saved = localStorage.getItem(LAYOUT_KEY) as 'side' | 'top'
+  if (saved === 'side' || saved === 'top') return saved
+  return DEFAULT_LAYOUT
+}
+
+const layoutMode = ref<'side' | 'top'>(pickInitialLayout())
+
+const opsColor = '#409EFF'
+const ops2Color = '#2E6BA8'
 
 const domainDefaultPage: Record<DomainType, string> = {
-  ops: '/sql/workbench',
+  ops: '/sql/sqlide',
   ops2: '/db-lifecycle'
 }
 
@@ -196,7 +212,7 @@ function pickInitialDomain(): DomainType {
   const saved = localStorage.getItem(DOMAIN_KEY) as DomainType
   if (saved === 'ops' || saved === 'ops2') return saved
   const last = localStorage.getItem(LAST_PAGE_KEY)
-  if (last === '/sql/workbench' || last === '/datasources' || last === '/db-users') return 'ops'
+  if (last === '/sql/sqlide' || last === '/datasources' || last === '/db-users') return 'ops'
   if (last === '/db-lifecycle' || last === '/servers' || last === '/plugins') return 'ops2'
   return 'ops'
 }
@@ -223,21 +239,28 @@ const topMenu: MenuItem[] = [
 ]
 
 const opsDomainMenu: MenuItem[] = [
-  { index: '/sql/workbench', title: 'SQL IDE', icon: EditPen },
-  { index: '/datasources', title: '数据源管理', icon: Document },
-  { index: '/db-users', title: '对象权限管理', icon: Lock }
+  { index: '/sql/sqlide', title: 'SQL IDE', icon: EditPen },
+  { index: '/datasources', title: '数据源', icon: Document },
+  { index: '/priv/groups', title: '对象权限', icon: Lock },
+  { index: '/import-export', title: '导入导出', icon: Upload },
+  { index: '/sql-audit', title: 'SQL审核', icon: DocumentChecked },
+  { index: '/sensitive-data', title: '敏感数据', icon: View }
 ]
 
 const ops2DomainMenu: MenuItem[] = [
-  { index: '/db-lifecycle', title: 'DB生命周期管理', icon: Coin },
-  { index: '/servers', title: '服务器管理', icon: Monitor, visible: () => userStore.isAdmin },
-  { index: '/plugins', title: '插件管理', icon: MagicStick, visible: () => userStore.isAdmin }
+  { index: '/db-lifecycle', title: 'DB生命周期', icon: Coin },
+  { index: '/servers', title: '服务器', icon: Monitor, visible: () => userStore.isAdmin },
+  { index: '/health-check', title: '健康巡检', icon: Histogram },
+  { index: '/data-migration', title: '数据迁移', icon: RefreshRight }
 ]
 
+// 顺序：业务管理 -> 审批流程 -> 操作审计 -> 平台配置 -> 个人中心
+// 个人中心从顶部菜单移除，仅通过右上角头像下拉访问
 const bottomMenu: MenuItem[] = [
   { index: '/businesses', title: '业务管理', icon: Folder },
-  { index: '/accounts', title: '平台账号管理', icon: User, visible: () => userStore.isAdmin },
+  { index: '/workflow/todo', title: '审批流程', icon: DocumentChecked },
   { index: '/audit', title: '操作审计', icon: Document, visible: () => userStore.isAdmin },
+  { index: '/platform-config', title: '平台配置', icon: Management, visible: () => userStore.isAdmin },
   { index: '/profile', title: '个人中心', icon: Setting }
 ]
 
@@ -247,15 +270,137 @@ const currentDomainMenu = computed<MenuItem[]>(() => {
 
 function pathToDomain(path: string): DomainType | null {
   if (!path) return null
-  if (path.startsWith('/sql') || path === '/datasources' || path.startsWith('/datasource') || path === '/db-users') return 'ops'
-  if (path === '/db-lifecycle' || path === '/servers' || path === '/plugins') return 'ops2'
+  if (path.startsWith('/sql') || path === '/datasources' || path.startsWith('/datasource') ||
+      path.startsWith('/priv') || path === '/db-users' || path === '/import-export' ||
+      path === '/sql-audit' || path === '/sensitive-data') return 'ops'
+  if (path === '/db-lifecycle' || path === '/servers' || path === '/health-check' ||
+      path === '/data-migration') return 'ops2'
   return null
 }
 
-watch(layoutMode, (v) => localStorage.setItem(LAYOUT_KEY, v))
+// ============ 顶部菜单自适应折叠逻辑 ============
+
+interface TopMenuItem {
+  index: string
+  title: string
+  icon: any
+  iconColor?: string
+  displayTitle: string
+  isTruncated: boolean
+}
+
+const composedTopMenu = computed<TopMenuItem[]>(() => {
+  const items: TopMenuItem[] = []
+  topMenu.forEach((m) => items.push({
+    index: m.index, title: m.title, icon: m.icon,
+    displayTitle: m.title, isTruncated: false
+  }))
+  currentDomainMenu.value
+    .filter((m) => !m.visible || m.visible())
+    .forEach((m) => items.push({
+      index: m.index, title: m.title, icon: m.icon,
+      iconColor: currentDomainColor.value,
+      displayTitle: m.title, isTruncated: false
+    }))
+  bottomMenu
+    .filter((m) => !m.visible || m.visible())
+    .forEach((m) => items.push({
+      index: m.index, title: m.title, icon: m.icon,
+      displayTitle: m.title, isTruncated: false
+    }))
+  return items
+})
+
+const topBarRef = ref<HTMLElement | null>(null)
+const visibleCount = ref<number>(999)
+const measuredWidths = ref<number[]>([])
+
+// 单个菜单最小展示宽度：图标约 20px + 至少4个中文字(约64px) + 内边距，至少 110px 能稳定完整展示
+const MORE_ITEM_WIDTH = 56 // "..." 项大致占位
+const ITEM_SAFE_MIN = 110   // 单个菜单最小展示宽度（完整显示图标+4字标题）
+
+const measureNodeArr: (HTMLElement | null)[] = []
+
+function setMeasureNode(idx: number, el: any) {
+  measureNodeArr[idx] = el as HTMLElement | null
+}
+
+function measureItemWidths() {
+  const widths: number[] = []
+  for (let i = 0; i < composedTopMenu.value.length; i++) {
+    const el = measureNodeArr[i]
+    if (el) {
+      const w = el.getBoundingClientRect().width
+      widths.push(Math.max(ITEM_SAFE_MIN, Math.ceil(w) + 4))
+    } else {
+      widths.push(ITEM_SAFE_MIN)
+    }
+  }
+  measuredWidths.value = widths
+  return widths
+}
+
+function computeLayout() {
+  nextTick(() => {
+    const bar = topBarRef.value
+    if (!bar) return
+    const widths = measureItemWidths()
+    const maxWidth = bar.getBoundingClientRect().width
+
+    if (widths.length === 0) return
+
+    const total = widths.reduce((s, w) => s + w, 0)
+    if (total <= maxWidth) {
+      visibleCount.value = widths.length
+      return
+    }
+
+    // 需要折叠：从前往后累加，剩余空间不足的整项进入下拉
+    const budget = maxWidth - MORE_ITEM_WIDTH
+    let used = 0
+    let count = 0
+    for (let i = 0; i < widths.length; i++) {
+      if (used + widths[i] <= budget) {
+        used += widths[i]
+        count++
+      } else {
+        break
+      }
+    }
+    if (count < 1) count = 1
+    visibleCount.value = count
+  })
+}
+
+let ro: ResizeObserver | null = null
+
+function bindObserver() {
+  if (layoutMode.value !== 'top') return
+  nextTick(() => {
+    if (ro) { ro.disconnect(); ro = null }
+    computeLayout()
+    if (topBarRef.value && typeof (window as any).ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => computeLayout())
+      ro.observe(topBarRef.value)
+    }
+  })
+}
+
+watch(() => composedTopMenu.value.length, () => bindObserver())
+
+watch(layoutMode, (v) => {
+  localStorage.setItem(LAYOUT_KEY, v)
+  if (v === 'top') {
+    bindObserver()
+  } else {
+    if (ro) { ro.disconnect(); ro = null }
+  }
+})
+
 watch(currentDomain, (v) => {
   localStorage.setItem(DOMAIN_KEY, v)
   document.documentElement.style.setProperty('--primary-color', domainConfig[v].color)
+  nextTick(() => bindObserver())
 }, { immediate: true })
 
 watch(
@@ -269,6 +414,33 @@ watch(
     }
   }
 )
+
+const visibleTopMenu = computed<TopMenuItem[]>(() => {
+  const items = composedTopMenu.value
+  const cap = Math.min(visibleCount.value, items.length)
+  return items.slice(0, cap).filter((m) => m.index !== '/profile')
+})
+
+const collapsedTopMenu = computed<TopMenuItem[]>(() => {
+  const items = composedTopMenu.value
+  const cap = Math.min(visibleCount.value, items.length)
+  const tail = items.slice(cap)
+  const hasProfile = tail.some((m) => m.index === '/profile')
+  if (!hasProfile) {
+    const profile = items.find((m) => m.index === '/profile')
+    if (profile) tail.push(profile)
+  }
+  return tail
+})
+
+function isActive(path: string): boolean {
+  return route.path === path || route.path.startsWith(path + '/')
+}
+
+function goTo(path: string) {
+  if (route.path === path) return
+  router.push(path)
+}
 
 function toggleLayout() {
   layoutMode.value = layoutMode.value === 'side' ? 'top' : 'side'
@@ -302,6 +474,8 @@ function handleCommand(cmd: string) {
 onMounted(() => {
   document.documentElement.style.setProperty('--primary-color', currentDomainColor.value)
   nextTick(() => {
+    if (layoutMode.value === 'top') bindObserver()
+
     const lastPage = localStorage.getItem(LAST_PAGE_KEY)
     const currentPath = route.path
     if (currentPath === '/' || currentPath === '' || currentPath === '/login') {
@@ -315,11 +489,13 @@ onMounted(() => {
     }
   })
 })
+
+onBeforeUnmount(() => {
+  if (ro) { ro.disconnect(); ro = null }
+})
 </script>
 
 <style scoped>
-.layout {
-}
 .layout-top :deep(.el-header) {
   height: 56px !important;
 }
@@ -330,12 +506,6 @@ onMounted(() => {
   justify-content: center;
   border-bottom: 1px solid #1f2d3d;
   flex-shrink: 0;
-}
-.fade-enter-active, .fade-leave-active {
-  transition: opacity .2s;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
 }
 .domain-tag {
   margin: 8px 12px;
@@ -354,5 +524,81 @@ onMounted(() => {
   background: #fff;
   border-top: 1px solid #e4e7ed;
   flex-shrink: 0;
+}
+
+/* ============ 顶部自定义菜单样式 ============ */
+.top-menu-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+  overflow: hidden;
+}
+.measure-layer {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.top-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  color: #303133;
+  font-size: 14px;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .2s, color .2s;
+  flex-shrink: 0;
+}
+.top-menu-item:hover {
+  background: #f0f2f5;
+  color: var(--primary-color, #409EFF);
+}
+.top-menu-item.is-active {
+  color: var(--primary-color, #409EFF);
+  background: rgba(64, 158, 255, 0.1);
+  font-weight: 500;
+}
+.tmi-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.tmi-text {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.more-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 0 10px;
+  color: #1f2937;
+  line-height: 40px;
+  border-radius: 4px;
+}
+.more-item:hover {
+  color: var(--primary-color, #409EFF);
+  background: #f0f2f5;
+}
+.more-item .more-dots {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
 }
 </style>

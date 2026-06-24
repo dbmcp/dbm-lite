@@ -20,16 +20,20 @@ const (
 )
 
 type User struct {
-	UserID       string     `gorm:"column:user_id;primaryKey;size:64" json:"userId"`
-	Username     string     `gorm:"column:username;size:64;uniqueIndex" json:"username"`
-	PasswordHash string     `gorm:"column:password_hash;size:255" json:"-"`
-	Email        string     `gorm:"column:email;size:128" json:"email"`
-	DisplayName  string     `gorm:"column:display_name;size:64" json:"displayName"`
-	Role         string     `gorm:"column:role;size:32;default:'member'" json:"role"`
-	Status       string     `gorm:"column:status;size:32;default:'active'" json:"status"`
-	LastLoginAt  *time.Time `gorm:"column:last_login_at" json:"lastLoginAt,omitempty"`
-	CreatedAt    time.Time  `gorm:"column:created_at" json:"createdAt"`
-	UpdatedAt    time.Time  `gorm:"column:updated_at" json:"updatedAt"`
+	UserID          string     `gorm:"column:user_id;primaryKey;size:64" json:"userId"`
+	Username        string     `gorm:"column:username;size:64;uniqueIndex" json:"username"`
+	PasswordHash    string     `gorm:"column:password_hash;size:255" json:"-"`
+	Email           string     `gorm:"column:email;size:128" json:"email"`
+	Phone           string     `gorm:"column:phone;size:32" json:"phone"`
+	DisplayName     string     `gorm:"column:display_name;size:64" json:"displayName"`
+	Role            string     `gorm:"column:role;size:32;default:'member'" json:"role"`
+	Status          string     `gorm:"column:status;size:32;default:'active'" json:"status"`
+	FailedLoginCnt  int        `gorm:"column:failed_login_cnt;default:0" json:"failedLoginCnt"`
+	LastLoginIP     string     `gorm:"column:last_login_ip;size:64" json:"lastLoginIp"`
+	LastLoginAt     *time.Time `gorm:"column:last_login_at" json:"lastLoginAt,omitempty"`
+	PasswordExpireAt *time.Time `gorm:"column:password_expire_at" json:"passwordExpireAt,omitempty"`
+	CreatedAt       time.Time  `gorm:"column:created_at" json:"createdAt"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at" json:"updatedAt"`
 }
 
 func (User) TableName() string { return "users" }

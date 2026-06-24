@@ -28,7 +28,7 @@
 ┌───────────────────────────────────────────────────────────────┐
 │  DBM-Lite  ─ DB Operation Domain ──────────────────────────     │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  SQL Workbench  |  DB Permissions  |  Data Sources        │  │
+│  │  SQL Sqlide  |  DB Permissions  |  Data Sources        │  │
 │  ├──────────────────────────────────────────────────────────┤  │
 │  │  ┌──────────────┐   ┌────────────────────────────────┐  │  │
 │  │  │ Datasource Tabs │   │  SELECT * FROM users LIMIT 100 │  │
@@ -56,7 +56,7 @@
 | Implemented (v0.1.0) | Planned |
 | --- | --- |
 | ✅ Multi datasource management (MySQL / TiDB / SQLite) | 🔲 Backup & recovery / Health check / Slow log analysis |
-| ✅ Multi-tab SQL workbench (Object tree + Result set + High-risk SQL validation) | 🔲 Plugin-based ops script ecosystem |
+| ✅ Multi-tab SQL sqlide (Object tree + Result set + High-risk SQL validation) | 🔲 Plugin-based ops script ecosystem |
 | ✅ Audit log | 🔲 Cluster lifecycle management |
 | ✅ Basic account & permission system | 🔲 Distributed database extension |
 | ✅ Dual-domain switching (DB Operation Domain / DB Maintenance Domain) | 🔲 DB permissions (production-grade) |
@@ -140,7 +140,7 @@ npm run dev
                          │ HTTP/HTTPS
               ┌──────────┴────────────────────┐
               │ Frontend (Vue3 + Element Plus)│
-              │ · SQL Workbench · Datasources │
+              │ · SQL Sqlide · Datasources │
               │ · Ops Domain · Audit Log      │
               └──────────┬────────────────────┘
                          │ REST API
@@ -209,7 +209,7 @@ dbm-lite/
 
 | Version | Status | Capabilities |
 | --- | --- | --- |
-| **v0.1.0** | ✅ Released | Core: datasource management, SQL workbench, dual-domain, audit log |
+| **v0.1.0** | ✅ Released | Core: datasource management, SQL sqlide, dual-domain, audit log |
 | **v0.2.0** | 🔲 Planned | Ops plugin ecosystem |
 | **v0.3.0** | 🔲 Planned |  |
 

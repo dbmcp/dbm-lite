@@ -11,20 +11,47 @@ export interface Server {
   username: string
   authType: string
   status: string
+  connStatus: string
+  connLatencyMs: number
+  os: string
+  arch: string
+  version: string
+  cpuCores: number
+  memoryGB: number
+  diskGB: number
+  remark: string
+  tags: string
+  timeout: number
   createdAt: string
+  lastCheckTime: string
+  createdBy: string
 }
 
-export function listServers(current: number, pageSize: number, keyword?: string, env?: string) {
+export function listServers(current: number, pageSize: number, keyword?: string, env?: string, status?: string) {
   return request<{ list: Server[]; total: number }>({
     url: '/servers',
     method: 'GET',
-    params: { page: current, pageSize, keyword, env }
+    params: { current, pageSize, keyword, env, status }
   })
 }
 
 export function listAllServers() {
   return request<Server[]>({
     url: '/servers/all',
+    method: 'GET'
+  })
+}
+
+export function statsServers() {
+  return request<Record<string, any>>({
+    url: '/servers/stats',
+    method: 'GET'
+  })
+}
+
+export function getServer(id: string) {
+  return request<Server>({
+    url: `/servers/${id}`,
     method: 'GET'
   })
 }
@@ -52,6 +79,13 @@ export function deleteServer(id: string) {
   })
 }
 
+export function toggleServer(id: string) {
+  return request({
+    url: `/servers/${id}/toggle`,
+    method: 'POST'
+  })
+}
+
 export function testServerById(id: string) {
   return request({
     url: `/servers/${id}/test`,
@@ -61,8 +95,16 @@ export function testServerById(id: string) {
 
 export function testServer(data: any) {
   return request({
-    url: `/servers/_test_/test`,
+    url: '/servers/test',
     method: 'POST',
     data
+  })
+}
+
+export function execCommand(id: string, command: string) {
+  return request<{ stdout: string; stderr: string }>({
+    url: `/servers/${id}/exec`,
+    method: 'POST',
+    data: { command }
   })
 }

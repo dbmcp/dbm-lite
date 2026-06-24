@@ -38,7 +38,7 @@ interface UnifiedResponse<T = any> {
 
 const service: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 30000
+  timeout: parseInt(import.meta.env.VITE_API_TIMEOUT || '60000')
 })
 
 service.interceptors.request.use(
@@ -60,12 +60,29 @@ service.interceptors.response.use(
       return body as any
     }
 
-    // V2格式：success/data/message
+    // V2格式：success/data/message，列表接口还附带 total/current/size
     if ('success' in body) {
       if (body.success) {
+        // 列表类接口：把 total/current/size 挂到返回的数组对象上，供前端分页使用
+        if (Array.isArray(body.data) && (typeof body.total === 'number' || typeof body.current === 'number')) {
+          const arr: any = body.data
+          if (typeof body.total === 'number') (arr as any).total = body.total
+          if (typeof body.current === 'number') (arr as any).current = body.current
+          if (typeof body.size === 'number') (arr as any).pageSize = body.size
+          return arr
+        }
         return body.data as any
       }
-      ElMessage.error(body.message || '请求失败')
+      // 检测token相关错误：token无效或已过期
+      const msg = body.message || ''
+      if (msg.includes('token') || msg.includes('Token') || msg.includes('TOKEN')) {
+        clearAuth()
+        ElMessage.error('登录已过期，请重新登录')
+        router.push('/login')
+        return Promise.reject(body)
+      }
+      // 其他业务错误：仅以标准错误消息提示，绝不阻塞编辑器
+      ElMessage({ type: 'warning', message: msg || '请求失败', duration: 3000, showClose: true })
       return Promise.reject(body)
     }
 
@@ -80,7 +97,7 @@ service.interceptors.response.use(
         router.push('/login')
         return Promise.reject(body)
       }
-      ElMessage.error(body.message || '请求失败')
+      ElMessage({ type: 'warning', message: body.message || '请求失败', duration: 3000, showClose: true })
       return Promise.reject(body)
     }
 
@@ -91,7 +108,9 @@ service.interceptors.response.use(
       clearAuth()
       router.push('/login')
     } else {
-      ElMessage.error(error.message || '网络请求失败')
+      // 网络或 5xx 错误：以短暂 warning 形式提示，避免阻塞编辑器
+      const msg = error?.response?.data?.message || error?.response?.data?.error || error.message || '网络请求失败'
+      ElMessage({ type: 'warning', message: String(msg), duration: 3000, showClose: true })
     }
     return Promise.reject(error)
   }

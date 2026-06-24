@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
 @Author: DB老王
@@ -46,7 +46,7 @@
           v-model:current-page="current"
           v-model:page-size="pageSize"
           :total="total"
-          :page-sizes="[10, 20, 50]"
+          :page-sizes="[10, 30, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadList"
           @size-change="loadList"
@@ -117,7 +117,7 @@ const loading = ref(false)
 const list = ref<any[]>([])
 const total = ref(0)
 const current = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(50)
 const keyword = ref('')
 const dialogVisible = ref(false)
 const pwdDialogVisible = ref(false)

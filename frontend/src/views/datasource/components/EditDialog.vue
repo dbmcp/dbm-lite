@@ -73,9 +73,22 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="连接超时秒">
+          <el-input-number v-model="form.timeout" :min="1" :max="600" style="width:200px" />
+          <span style="margin-left:8px;color:#909399;font-size:12px">默认 60 秒，与目标数据库建立连接的最大等待时长</span>
+        </el-form-item>
         <el-form-item>
           <el-checkbox v-model="form.sslMode" :true-value="'true'" :false-value="'false'">启用 SSL 连接</el-checkbox>
           <el-checkbox v-model="form.readOnly" style="margin-left:16px">只读模式</el-checkbox>
+        </el-form-item>
+        <el-form-item v-if="form.sslMode === 'true'" label="SSL CA 文件">
+          <el-input
+            v-model="form.sslCaFile"
+            placeholder="留空使用系统默认CA证书；或填写CA证书文件路径（如 /etc/ssl/ca.pem）或PEM格式证书内容"
+            type="textarea"
+            :rows="3"
+          />
+          <div style="font-size:12px;color:#909399;margin-top:4px">TiDB Cloud 留空即可使用系统CA验证</div>
         </el-form-item>
       </template>
       <template v-if="form.dbType === 'sqlite'">
@@ -139,8 +152,8 @@ const colorOptions = [
 const form = reactive<any>({
   name: '', dbType: 'mysql', host: '', port: 3306, username: '', password: '',
   defaultDatabase: '', filePath: '', openMode: 'rw', charset: 'utf8mb4',
-  timezone: 'Local', sslMode: 'false', readOnly: false, colorLabel: 'blue',
-  tags: '', env: 'dev', remark: ''
+  timezone: 'Local', sslMode: 'false', sslCaFile: '', readOnly: false, colorLabel: 'blue',
+  tags: '', env: 'dev', remark: '', timeout: 60
 })
 
 watch(dialogVisible, (v) => {
@@ -160,8 +173,9 @@ async function load() {
       defaultDatabase: ds.defaultDatabase || '', filePath: ds.filePath || '',
       openMode: ds.openMode || 'rw', charset: ds.charset || 'utf8mb4',
       timezone: ds.timezone || 'Local', sslMode: ds.sslMode || 'false',
-      readOnly: !!ds.readOnly, colorLabel: ds.colorLabel || 'blue',
-      tags: ds.tags || '', env: ds.env || 'dev', remark: ds.remark || ''
+      sslCaFile: ds.sslCaFile || '', readOnly: !!ds.readOnly, colorLabel: ds.colorLabel || 'blue',
+      tags: ds.tags || '', env: ds.env || 'dev', remark: ds.remark || '',
+      timeout: ds.timeout || 60
     })
   } catch (e: any) {
     ElMessage.error(e?.message || '加载数据源失败')

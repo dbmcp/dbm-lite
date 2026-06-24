@@ -117,3 +117,40 @@ body {
   font-size: 14px;
   margin-top: 8px;
 }
+
+/* =========================================================
+   dbm-layout-top: 顶部菜单布局模式下的紧凑布局规则
+   - 隐藏各页面的重复标题行（page-header / 自定义 header）
+   - 缩小页面 padding，让面板占满更多可视区域
+   - 让内容容器自适应剩余高度
+   ========================================================= */
+body.dbm-layout-top .page-header,
+body.dbm-layout-top .page-title,
+body.dbm-layout-top .page-sub,
+body.dbm-layout-top .ferry-header,
+body.dbm-layout-top .priv-page > .page-header {
+  display: none !important;
+}
+
+body.dbm-layout-top .page-container {
+  padding: 12px !important;
+  min-height: 0;
+}
+
+body.dbm-layout-top .ferry-center,
+body.dbm-layout-top .priv-page,
+body.dbm-layout-top .sqlide-root {
+  padding: 8px 12px !important;
+  min-height: 0;
+}
+
+/* 让 Element Plus 的 el-main 填满剩余高度，内容可滚动 */
+body.dbm-layout-top .el-container {
+  height: 100vh;
+}
+body.dbm-layout-top .el-main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 !important;
+}

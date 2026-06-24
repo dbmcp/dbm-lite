@@ -18,7 +18,7 @@
             <el-radio-button value="card">卡片</el-radio-button>
           </el-radio-group>
         </el-tooltip>
-        <el-button :icon="RefreshIcon" @click="loadList">刷新</el-button>
+        <el-button @click="loadList"><span class="refresh-icon">⟳</span>刷新</el-button>
         <el-button type="primary" :icon="PlusIcon" v-if="userStore.isAdmin" @click="openDialog()">新建数据源</el-button>
         <el-button :icon="QuestionFilled" @click="showHelp = true">帮助</el-button>
       </div>
@@ -60,34 +60,42 @@
       </div>
 
       <el-table v-else-if="viewMode === 'table'" :data="list" style="width:100%;" v-loading="loading" stripe :default-sort="{ prop: 'createdAt', order: 'descending' }">
-        <el-table-column label="状态" width="90" align="center" fixed="left">
+        <el-table-column label="状态" width="90" align="center" fixed="left" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tooltip :content="connStatusTooltip(row)" placement="top" :show-after="400">
               <span class="status-dot" :class="statusClass(row)"></span>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="数据源名称" sortable v-if="colVisible.name" min-width="180">
+        <el-table-column prop="name" label="数据源名称" sortable v-if="colVisible.name" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <span class="color-bar" :style="{ background: colorOf(row.colorLabel) }"></span>
+            <el-tooltip v-if="dsStore.isDefault(row.datasourceId)" content="默认数据源" placement="top">
+              <el-icon :size="16" color="#f29111" style="margin-right:4px;"><StarFilled /></el-icon>
+            </el-tooltip>
             <el-link type="primary" :is-underline="false" @click="goDetail(row)">{{ row.name }}</el-link>
+            <el-tooltip v-if="dsStore.isDefault(row.datasourceId)"></el-tooltip>
+            <el-icon v-if="dsStore.isDefault(row.datasourceId)" :size="12" color="#f29111" style="margin-left:2px;"><StarFilled /></el-icon>
+            <el-icon v-else></el-icon>
           </template>
         </el-table-column>
-        <el-table-column label="数据库类型" sortable v-if="colVisible.dbType" width="110">
+        <el-table-column label="数据库类型" sortable v-if="colVisible.dbType" width="130" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag v-if="row.dbType === 'mysql'" type="primary" size="small">
-              <span style="margin-right:4px;">🗄️</span>MySQL
+              <DbTypeIcon type="mysql" label="MySQL" style="margin-right:4px;" />MySQL
             </el-tag>
             <el-tag v-else-if="row.dbType === 'tidb'" type="success" size="small">
-              <span style="margin-right:4px;">⚡</span>TiDB
+              <DbTypeIcon type="tidb" label="TiDB" style="margin-right:4px;" />TiDB
             </el-tag>
             <el-tag v-else-if="row.dbType === 'sqlite'" type="info" size="small">
-              <span style="margin-right:4px;">📁</span>SQLite
+              <DbTypeIcon type="sqlite" label="SQLite" style="margin-right:4px;" />SQLite
             </el-tag>
-            <el-tag v-else size="small">{{ row.dbType }}</el-tag>
+            <el-tag v-else size="small">
+              <DbTypeIcon :type="row.dbType" style="margin-right:4px;" />{{ row.dbType }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="地址" sortable v-if="colVisible.host" min-width="200">
+        <el-table-column label="地址" sortable v-if="colVisible.host" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tooltip v-if="row.dbType === 'sqlite'" :content="row.filePath || '(内存库)'" placement="top">
               <span class="mono">{{ row.filePath || '(内存库)' }}</span>
@@ -95,19 +103,19 @@
             <span v-else class="mono">{{ row.host }}:{{ row.port }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="默认数据库" v-if="colVisible.defaultDatabase" min-width="120">
+        <el-table-column label="默认数据库" v-if="colVisible.defaultDatabase" min-width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag size="small" v-if="row.defaultDatabase">{{ row.defaultDatabase }}</el-tag>
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="username" label="用户名" v-if="colVisible.username" min-width="110">
+        <el-table-column prop="username" label="用户名" v-if="colVisible.username" min-width="110" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.username">{{ row.username }}</span>
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="连接延迟" v-if="colVisible.latency" width="120">
+        <el-table-column label="连接延迟" v-if="colVisible.latency" width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.connStatus === 'ok' && row.connLatencyMs" :style="{ color: row.connLatencyMs > 200 ? '#e6a23c' : '#67c23a' }">
               {{ row.connLatencyMs }} ms
@@ -115,7 +123,7 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="环境" v-if="colVisible.env" width="110">
+        <el-table-column label="环境" v-if="colVisible.env" width="110" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag v-if="row.env === 'prod'" type="danger" size="small">生产</el-tag>
             <el-tag v-else-if="row.env === 'stage'" type="warning" size="small">预发</el-tag>
@@ -123,7 +131,7 @@
             <el-tag v-else size="small">开发</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="最近连接" v-if="colVisible.lastTestAt" min-width="170" sortable="custom">
+        <el-table-column label="最近连接" v-if="colVisible.lastTestAt" min-width="170" sortable="custom" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tooltip v-if="row.lastConnTestAt" :content="row.lastConnTestAt" placement="top">
               <span style="color:#606266;font-size:13px;">{{ row.lastConnTestAt }}</span>
@@ -131,12 +139,12 @@
             <span v-else class="text-muted">尚未测试</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="330" fixed="right">
+        <el-table-column label="操作" width="330" fixed="right" show-overflow-tooltip>
           <template #default="{ row }">
             <el-button size="small" :type="row.connStatus === 'ok' ? 'success' : ''" @click="refreshConn(row)" :loading="refreshingConnId === row.datasourceId">
               {{ refreshingConnId === row.datasourceId ? '测试中' : '测试连接' }}
             </el-button>
-            <el-button size="small" @click="goWorkbench(row)">SQL</el-button>
+            <el-button size="small" @click="goSqlide(row)">SQL</el-button>
             <el-dropdown @command="(c) => onMoreCommand(c, row)" trigger="click">
               <el-button size="small">更多<el-icon class="el-icon--right"><arrow-down /></el-icon></el-button>
               <template #dropdown>
@@ -144,7 +152,9 @@
                   <el-dropdown-item command="detail" :icon="ViewIcon">查看详情</el-dropdown-item>
                   <el-dropdown-item command="copy" :icon="CopyIcon" v-if="userStore.isAdmin">复制</el-dropdown-item>
                   <el-dropdown-item command="edit" :icon="EditIcon" v-if="userStore.isAdmin">编辑</el-dropdown-item>
-                  <el-dropdown-item command="setDefault" :icon="StarIcon">设为默认</el-dropdown-item>
+                  <el-dropdown-item command="setDefault" :icon="dsStore.isDefault(row.datasourceId) ? StarFilled : StarIcon">
+                    {{ dsStore.isDefault(row.datasourceId) ? '当前默认数据源' : '设为默认' }}
+                  </el-dropdown-item>
                   <el-dropdown-item command="resetPwd" :icon="LockIcon" v-if="userStore.isAdmin">重置密码</el-dropdown-item>
                   <el-dropdown-item divided command="delete" :icon="DeleteIcon" v-if="userStore.isAdmin" style="color:#f56c6c;">删除</el-dropdown-item>
                 </el-dropdown-menu>
@@ -161,12 +171,16 @@
               <el-tooltip :content="connStatusTooltip(row)" placement="top">
                 <span class="status-dot" :class="statusClass(row)" style="margin-right:6px;"></span>
               </el-tooltip>
+              <el-tooltip v-if="dsStore.isDefault(row.datasourceId)" content="默认数据源" placement="top">
+                <el-icon :size="16" color="#f29111" style="margin-right:4px;"><StarFilled /></el-icon>
+              </el-tooltip>
               <el-link type="primary" :is-underline="false" class="ds-name" @click="goDetail(row)">{{ row.name }}</el-link>
             </div>
             <div class="card-type">
-              <el-tag v-if="row.dbType === 'mysql'" type="primary" size="small">MySQL</el-tag>
-              <el-tag v-else-if="row.dbType === 'tidb'" type="success" size="small">TiDB</el-tag>
-              <el-tag v-else-if="row.dbType === 'sqlite'" type="info" size="small">SQLite</el-tag>
+              <el-tag v-if="row.dbType === 'mysql'" type="primary" size="small"><DbTypeIcon type="mysql" style="margin-right:4px;" />MySQL</el-tag>
+              <el-tag v-else-if="row.dbType === 'tidb'" type="success" size="small"><DbTypeIcon type="tidb" style="margin-right:4px;" />TiDB</el-tag>
+              <el-tag v-else-if="row.dbType === 'sqlite'" type="info" size="small"><DbTypeIcon type="sqlite" style="margin-right:4px;" />SQLite</el-tag>
+              <el-tag v-else size="small">{{ row.dbType }}</el-tag>
             </div>
           </div>
           <div class="card-body">
@@ -192,7 +206,7 @@
           </div>
           <div class="card-footer">
             <el-button size="small" type="success" @click="refreshConn(row)" :loading="refreshingConnId === row.datasourceId">测试连接</el-button>
-            <el-button size="small" @click="goWorkbench(row)">SQL工作台</el-button>
+            <el-button size="small" @click="goSqlide(row)">SQL工作台</el-button>
             <el-button size="small" type="primary" @click="openDialog(row)" v-if="userStore.isAdmin">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDelete(row)" v-if="userStore.isAdmin">删除</el-button>
           </div>
@@ -206,7 +220,7 @@
           v-model:current-page="current"
           v-model:page-size="pageSize"
           :total="total"
-          :page-sizes="[10, 20, 50, 100]"
+          :page-sizes="[100, 200, 500, 1000]"
           layout="sizes, prev, pager, next, jumper"
           @current-change="loadList"
           @size-change="loadList"
@@ -312,17 +326,17 @@
             </el-col>
             <el-col :span="12">
               <el-form-item label="连接超时秒">
-                <el-input-number v-model="form.timeout" :min="1" :max="300" style="width:100%;" />
+                <el-input-number v-model="form.timeout" :min="1" :max="600" style="width:100%;" />
               </el-form-item>
             </el-col>
           </el-row>
 
           <el-form-item>
-            <el-checkbox v-model="form.sslMode" :true-value="'true'" :false-value="'false'">启用 SSL 连接</el-checkbox>
+            <el-checkbox v-model="form.sslMode">启用 SSL 连接</el-checkbox>
             <el-checkbox v-model="form.readOnly" style="margin-left:16px;">只读模式（SQL IDE 禁用 DDL/DML）</el-checkbox>
           </el-form-item>
 
-          <el-form-item v-if="form.sslMode === 'true'" label="SSL 证书路径">
+          <el-form-item v-if="form.sslMode" label="SSL 证书路径">
             <el-input v-model="form.sslCaFile" placeholder="如 /etc/mysql/ca.pem（可选）" />
           </el-form-item>
         </template>
@@ -386,7 +400,7 @@
       <el-tabs v-model="activeDb" v-if="databases.length > 0" @tab-click="loadTables">
         <el-tab-pane v-for="d in databases" :key="d" :label="d" :name="d">
           <el-table :data="(tablesMap[d] || []).map((t: any) => ({ name: t }))" size="small" v-loading="tablesLoading">
-            <el-table-column label="表名" prop="name" />
+            <el-table-column label="表名" prop="name" show-overflow-tooltip />
           </el-table>
         </el-tab-pane>
       </el-tabs>
@@ -433,17 +447,17 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import {
   Search as SearchIcon, Refresh as RefreshIcon, Plus as PlusIcon,
   QuestionFilled, ArrowDown, DocumentCopy as CopyIcon, Edit as EditIcon,
-  Delete as DeleteIcon, View as ViewIcon, StarFilled as StarIcon, Lock as LockIcon
+  Delete as DeleteIcon, View as ViewIcon, Star as StarIcon, StarFilled, Lock as LockIcon
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useDatasourceStore } from '@/stores/datasource'
 import {
   listDatasources, createDatasource, updateDatasource, deleteDatasource, copyDatasource,
-  testConnection as testConn, testConnectionById, listDatabases, listTables,
-  listDatasource, createDatasourceV2, updateDatasourceV2, deleteDatasourceV2
+  getDatasource, testConnection as testConn, testConnectionById, listDatabases, listTables
 } from '@/api/datasource'
 import request from '@/api/request'
 import ColumnToggle from '@/components/ColumnToggle.vue'
+import DbTypeIcon from '@/components/DbTypeIcon.vue'
 import type { TestResult, DatasourceForm } from '@/api/datasource'
 
 const router = useRouter()
@@ -476,7 +490,7 @@ const colVisible = ref<Record<string, boolean>>({
 const list = ref<any[]>([])
 const total = ref(0)
 const current = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(100)
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -484,6 +498,7 @@ const editId = ref('')
 const formRef = ref<FormInstance>()
 const testResult = ref<TestResult | null>(null)
 const testing = ref(false)
+const pendingRefreshId = ref('')
 
 const businesses = ref<any[]>([])
 const servers = ref<any[]>([])
@@ -501,8 +516,8 @@ const colorOptions = [
 const form = reactive<any>({
   name: '', dbType: 'mysql', host: '', port: 3306, username: '', password: '',
   defaultDatabase: '', filePath: '', openMode: 'rw',
-  charset: 'utf8mb4', timezone: 'Local', sslMode: 'false', sslCaFile: '',
-  readOnly: false, colorLabel: 'blue', timeout: 10,
+  charset: 'utf8mb4', timezone: 'Local', sslMode: false, sslCaFile: '',
+  readOnly: false, colorLabel: 'blue', timeout: 60,
   tags: '', businessId: '', serverId: '', autoCreateServer: true,
   projectId: '', env: 'dev', remark: '', status: 'active', memoryDB: false
 })
@@ -565,6 +580,11 @@ function connStatusTooltip(row: any) {
   return '尚未测试'
 }
 
+function formatDateTime(date: Date = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+}
+
 function onDbTypeChange(type: string) {
   testResult.value = null
   if (type === 'mysql') {
@@ -622,8 +642,63 @@ function openDialog(row?: any) {
   loadBusinessesAndServers()
   testResult.value = null
   if (row) {
+    // 编辑模式：先从接口获取包含密码的完整数据源信息
     isEdit.value = true
     editId.value = row.datasourceId
+    loadDatasourceForEdit(row)
+  } else {
+    isEdit.value = false
+    editId.value = ''
+    Object.assign(form, {
+      name: '', dbType: 'mysql', host: '', port: 3306, username: '', password: '',
+      defaultDatabase: 'mysql', filePath: '', openMode: 'rw',
+      charset: 'utf8mb4', timezone: 'Local', sslMode: false, sslCaFile: '',
+      readOnly: false, colorLabel: 'blue', timeout: 60,
+      tags: '', businessId: '', serverId: '', autoCreateServer: true,
+      projectId: '', env: 'dev', remark: '', status: 'active', memoryDB: false
+    })
+    dialogVisible.value = true
+  }
+}
+
+// 异步加载用于编辑的数据源信息（含其他字段，密码字段单独处理）
+const originalPasswordForEdit = ref('')
+async function loadDatasourceForEdit(row: any) {
+  try {
+    const ds: any = await getDatasource(row.datasourceId, true)
+    // 保存原始密码用于连接测试等场景
+    originalPasswordForEdit.value = ds?.password ?? ''
+    Object.assign(form, {
+      name: ds?.name ?? row.name,
+      dbType: ds?.dbType ?? row.dbType ?? 'mysql',
+      host: ds?.host ?? row.host ?? '',
+      port: ds?.port ?? row.port ?? 3306,
+      username: ds?.username ?? row.username ?? '',
+      // 编辑时密码输入框保持为空——如果用户不填说明不修改密码
+      password: '',
+      defaultDatabase: ds?.defaultDatabase ?? row.defaultDatabase ?? '',
+      filePath: ds?.filePath ?? (row.dbType === 'sqlite' ? row.host : '') ?? '',
+      openMode: ds?.openMode ?? row.openMode ?? 'rw',
+      charset: ds?.charset ?? row.charset ?? 'utf8mb4',
+      timezone: ds?.timezone ?? row.timezone ?? 'Local',
+      sslMode: (ds?.sslMode === true || ds?.sslMode === 'true') ?? (row.sslMode === true || row.sslMode === 'true' || false),
+      sslCaFile: ds?.sslCaFile ?? row.sslCaFile ?? '',
+      readOnly: !!(ds?.readOnly ?? row.readOnly ?? false),
+      colorLabel: ds?.colorLabel ?? row.colorLabel ?? 'blue',
+      timeout: ds?.timeout ?? row.timeout ?? 60,
+      tags: ds?.tags ?? row.tags ?? '',
+      businessId: ds?.businessId ?? row.businessId ?? '',
+      serverId: ds?.serverId ?? row.serverId ?? '',
+      autoCreateServer: true,
+      projectId: ds?.projectId ?? row.projectId ?? '',
+      env: ds?.env ?? row.env ?? 'dev',
+      remark: ds?.remark ?? row.remark ?? '',
+      status: ds?.status ?? row.status ?? 'active',
+      memoryDB: !!(ds?.filePath && ds.filePath.indexOf(':memory') >= 0)
+    })
+  } catch (e: any) {
+    originalPasswordForEdit.value = ''
+    // 接口失败则 fallback 到 row 数据
     Object.assign(form, {
       name: row.name,
       dbType: row.dbType || 'mysql',
@@ -636,11 +711,11 @@ function openDialog(row?: any) {
       openMode: row.openMode || 'rw',
       charset: row.charset || 'utf8mb4',
       timezone: row.timezone || 'Local',
-      sslMode: row.sslMode || 'false',
+      sslMode: row.sslMode === true || row.sslMode === 'true' || false,
       sslCaFile: row.sslCaFile || '',
       readOnly: !!row.readOnly,
       colorLabel: row.colorLabel || 'blue',
-      timeout: row.timeout || 10,
+      timeout: row.timeout || 60,
       tags: row.tags || '',
       businessId: row.businessId || '',
       serverId: row.serverId || '',
@@ -651,19 +726,10 @@ function openDialog(row?: any) {
       status: row.status || 'active',
       memoryDB: !!(row.filePath && row.filePath.indexOf(':memory') >= 0)
     })
-  } else {
-    isEdit.value = false
-    editId.value = ''
-    Object.assign(form, {
-      name: '', dbType: 'mysql', host: '', port: 3306, username: '', password: '',
-      defaultDatabase: 'mysql', filePath: '', openMode: 'rw',
-      charset: 'utf8mb4', timezone: 'Local', sslMode: 'false', sslCaFile: '',
-      readOnly: false, colorLabel: 'blue', timeout: 10,
-      tags: '', businessId: '', serverId: '', autoCreateServer: true,
-      projectId: '', env: 'dev', remark: '', status: 'active', memoryDB: false
-    })
+    console.warn('加载数据源详情失败，使用列表数据：', e?.message)
+  } finally {
+    dialogVisible.value = true
   }
-  dialogVisible.value = true
 }
 
 async function save() {
@@ -693,14 +759,30 @@ async function save() {
         payload.filePath = ':memory:'
       }
       if (isEdit.value) {
+        // 编辑时：如果用户没修改密码（password 仍为空），不发送 password 字段，避免覆盖已有密码
+        if (!payload.password) {
+          delete payload.password
+        }
         await updateDatasource(editId.value, payload as DatasourceForm)
         ElMessage.success('更新成功')
+        // 编辑后自动触发连接状态测试
+        pendingRefreshId.value = editId.value
       } else {
-        await createDatasource(payload as DatasourceForm)
+        const resp: any = await createDatasource(payload as DatasourceForm)
         ElMessage.success('创建成功，已自动为您加密存储密码')
+        // 新增后，如后端返回数据源 id 则自动触发连接测试
+        const newId: string | undefined =
+          resp?.datasourceId ?? resp?.id ?? resp?.data?.datasourceId ?? resp?.data?.id
+        if (newId) pendingRefreshId.value = newId
       }
       dialogVisible.value = false
-      loadList()
+      // 刷新列表后自动对目标数据源发起一次连接状态测试
+      await loadList()
+      if (pendingRefreshId.value) {
+        const target = list.value.find((d: any) => d.datasourceId === pendingRefreshId.value)
+        if (target) refreshConn(target)
+        pendingRefreshId.value = ''
+      }
     } catch (e: any) {
       ElMessage.error(e?.message || '保存失败')
     }
@@ -714,6 +796,10 @@ async function testConnection() {
     const payload: any = { ...form }
     if (payload.dbType === 'sqlite' && payload.memoryDB) {
       payload.filePath = ':memory:'
+    }
+    // 编辑模式下，如果用户没输入新密码，则使用原始密码测试连接
+    if (isEdit.value && !payload.password && originalPasswordForEdit.value) {
+      payload.password = originalPasswordForEdit.value
     }
     const res: any = await testConn(payload)
     const tr: TestResult = {
@@ -739,7 +825,7 @@ async function refreshConn(row: any) {
     const idx = list.value.findIndex((d: any) => d.datasourceId === row.datasourceId)
     if (idx >= 0) {
       list.value[idx].connStatus = res?.success ? 'ok' : 'fail'
-      list.value[idx].lastConnTestAt = new Date().toLocaleString()
+      list.value[idx].lastConnTestAt = formatDateTime(new Date())
       if (res?.latencyMs != null) list.value[idx].connLatencyMs = res.latencyMs
       if (res?.version) list.value[idx].version = res.version
     }
@@ -748,7 +834,7 @@ async function refreshConn(row: any) {
     const idx = list.value.findIndex((d: any) => d.datasourceId === row.datasourceId)
     if (idx >= 0) {
       list.value[idx].connStatus = 'fail'
-      list.value[idx].lastConnTestAt = new Date().toLocaleString()
+      list.value[idx].lastConnTestAt = formatDateTime(new Date())
     }
     ElMessage.error(e?.message || '连接失败')
   } finally {
@@ -807,8 +893,13 @@ async function onMoreCommand(cmd: string, row: any) {
       }
       break
     case 'setDefault':
-      dsStore.setDatasource(row.datasourceId, row.name)
-      ElMessage.success('已设为默认数据源')
+      if (dsStore.isDefault(row.datasourceId)) {
+        ElMessage.info('该数据源已是默认数据源')
+      } else {
+        dsStore.setDefault(row.datasourceId)
+        dsStore.setDatasource(row.datasourceId, row.name)
+        ElMessage.success('已将「' + row.name + '」设为默认数据源')
+      }
       break
     case 'resetPwd':
       pwdForm.datasourceId = row.datasourceId
@@ -870,9 +961,9 @@ async function loadTables() {
   }
 }
 
-function goWorkbench(row: any) {
+function goSqlide(row: any) {
   dsStore.setDatasource(row.datasourceId, row.name)
-  router.push('/sql/workbench')
+  router.push('/sql/sqlide')
 }
 
 function goDetail(row: any) {
@@ -956,16 +1047,21 @@ watch(current, () => loadList())
 .empty-desc { margin-top: 8px; font-size: 13px; color: #909399; }
 
 .card-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 14px;
 }
 .card-item {
+  flex: 1 1 340px;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid #ebeef5;
   border-radius: 8px;
   overflow: hidden;
   transition: box-shadow .2s, transform .2s;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 .card-item:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,.08);
@@ -978,9 +1074,12 @@ watch(current, () => loadList())
   padding: 10px 14px;
   background: #fafbfc;
   border-bottom: 1px solid #ebeef5;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-.card-title { display: flex; align-items: center; font-weight: 500; color: #303133; }
-.card-body { padding: 12px 14px; }
+.card-title { display: flex; align-items: center; font-weight: 500; color: #303133; min-width: 0; }
+.card-title .ds-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+.card-body { padding: 12px 14px; flex: 1; }
 .card-row {
   display: flex;
   align-items: flex-start;
@@ -992,13 +1091,16 @@ watch(current, () => loadList())
   color: #909399;
   flex-shrink: 0;
 }
-.card-row .value { flex: 1; color: #303133; word-break: break-all; }
+.card-row .value { flex: 1; color: #303133; word-break: break-all; min-width: 0; }
 .card-footer {
   padding: 10px 14px;
   border-top: 1px solid #ebeef5;
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  justify-content: flex-start;
   background: #fafbfc;
 }
+.card-footer .el-button { flex-shrink: 0; white-space: nowrap; }
 </style>

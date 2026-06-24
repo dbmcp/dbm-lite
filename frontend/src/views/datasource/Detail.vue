@@ -6,7 +6,7 @@
         <span class="title-text">数据源详情</span>
       </div>
       <div class="header-actions">
-        <el-button :icon="RefreshIcon" @click="loadDetail" :loading="loading">刷新</el-button>
+        <el-button @click="loadDetail" :loading="loading"><span class="refresh-icon">⟳</span>刷新</el-button>
         <el-button type="primary" :icon="EditIcon" v-if="userStore.isAdmin" @click="openEdit">编辑</el-button>
         <el-button type="danger" :icon="DeleteIcon" v-if="userStore.isAdmin" @click="handleDelete">删除</el-button>
         <el-button type="success" :icon="Connection" @click="testConnection" :loading="testing">测试连接</el-button>
@@ -109,7 +109,7 @@
           </el-table-column>
           <el-table-column label="操作" width="140">
             <template #default="{ row }">
-              <el-button size="small" @click="goWorkbench(row.name)">进入 SQL</el-button>
+              <el-button size="small" @click="goSqlide(row.name)">进入 SQL</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -323,9 +323,9 @@ function goBack() {
   router.push('/datasources')
 }
 
-function goWorkbench(dbName: string) {
+function goSqlide(dbName: string) {
   dsStore.setDatasource(datasourceId, datasource.value.name)
-  router.push({ path: '/sql/workbench', query: { db: dbName } })
+  router.push({ path: '/sql/sqlide', query: { db: dbName } })
 }
 
 onMounted(() => {

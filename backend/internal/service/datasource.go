@@ -8,17 +8,56 @@ package service
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	"dbm-lite/config"
 	"dbm-lite/internal/database"
 	"dbm-lite/internal/dbtype"
 	"dbm-lite/internal/model"
-	"dbm-lite/pkg/crypto"
 
-	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
+
+// getUsernameMap 批量通过 user_id 查询 username，避免 N+1
+func getUsernameMap(userIds []string) map[string]string {
+	result := map[string]string{}
+	if len(userIds) == 0 {
+		return result
+	}
+	var users []model.User
+	if err := database.DB.Select("user_id, username, display_name").Where("user_id IN ?", userIds).Find(&users).Error; err != nil {
+		return result
+	}
+	for _, u := range users {
+		if u.DisplayName != "" {
+			result[u.UserID] = u.DisplayName
+		} else {
+			result[u.UserID] = u.Username
+		}
+	}
+	return result
+}
+
+// getUsername 单个查询用户名
+func getUsername(userId string) string {
+	if userId == "" {
+		return ""
+	}
+	var u model.User
+	err := database.DB.Select("username, display_name").Where("user_id = ?", userId).First(&u).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ""
+		}
+		return ""
+	}
+	if u.DisplayName != "" {
+		return u.DisplayName
+	}
+	return u.Username
+}
 
 var ErrDatasourceNotFound = errors.New("数据源不存在")
 
@@ -116,733 +155,295 @@ func (s *DatasourceService) GetMatrix() ([]*EnvGroup, error) {
 	return result, nil
 }
 
-// ==================== 密码脱敏 ====================
-
-func maskPassword(password string) string {
-	if len(password) <= 4 {
-		return "****"
-	}
-	return password[:2] + "***" + password[len(password)-2:]
-}
-
-// ==================== V2 列表响应模型 ====================
-
-type DatasourceListItem struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	DatasourceType string   `json:"datasourceType"`
-	Type           string   `json:"type"`
-	DBType         string   `json:"dbType"`
-	Env            string   `json:"env"`
-	Host           string   `json:"host"`
-	Port           int      `json:"port"`
-	Username       string   `json:"username"`
-	Password       string   `json:"password"`
-	DatabaseName   string   `json:"databaseName"`
-	Description    string   `json:"description"`
-	Status         string   `json:"status"`
-	ConnectStatus  string   `json:"connectStatus"`
-	CreateTime     string   `json:"createTime"`
-	UpdateTime     string   `json:"updateTime"`
-	Tags           []string `json:"tags"`
-	ColorLabel     string   `json:"colorLabel"`
-	ConnLatencyMs int64    `json:"connLatencyMs"`
-	FilePath       string   `json:"filePath"`
-	OpenMode       string   `json:"openMode"`
-}
-
-type DatasourceDetail struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	DatasourceType string   `json:"datasourceType"`
-	Type           string   `json:"type"`
-	DBType         string   `json:"dbType"`
-	Env            string   `json:"env"`
-	Host           string   `json:"host"`
-	Port           int      `json:"port"`
-	Username       string   `json:"username"`
-	Password       string   `json:"password"`
-	DatabaseName   string   `json:"databaseName"`
-	Description    string   `json:"description"`
-	Status         string   `json:"status"`
-	ConnectStatus  string   `json:"connectStatus"`
-	CreateTime     string   `json:"createTime"`
-	UpdateTime     string   `json:"updateTime"`
-	Tags           []string `json:"tags"`
-	OwnerId        string   `json:"ownerId"`
-	OrgId          string   `json:"orgId"`
-	ColorLabel     string   `json:"colorLabel"`
-	FilePath       string   `json:"filePath"`
-	OpenMode       string   `json:"openMode"`
-}
-
-type CreateDatasourceReq struct {
-	Name           string   `json:"name"`
-	DatasourceType string   `json:"datasourceType"`
-	Type           string   `json:"type"`
-	DBType         string   `json:"dbType"`
-	Env            string   `json:"env"`
-	Host           string   `json:"host"`
-	Port           *int     `json:"port"`
-	Username       string   `json:"username"`
-	Password       string   `json:"password"`
-	DatabaseName   string   `json:"databaseName"`
-	Description    string   `json:"description"`
-	Tags           []string `json:"tags"`
-	FilePath       string   `json:"filePath"`
-	OpenMode       string   `json:"openMode"`
-	ColorLabel     string   `json:"colorLabel"`
-}
-
-type UpdateDatasourceReq struct {
-	Name         string   `json:"name"`
-	Env          string   `json:"env"`
-	Host         string   `json:"host"`
-	Port         *int     `json:"port"`
-	Username     string   `json:"username"`
-	Password     string   `json:"password"`
-	DatabaseName string   `json:"databaseName"`
-	Description  string   `json:"description"`
-	Tags         []string `json:"tags"`
-	FilePath     string   `json:"filePath"`
-	OpenMode     string   `json:"openMode"`
-	ColorLabel   string   `json:"colorLabel"`
-	Status       string   `json:"status"`
-}
-
-type TestConnectionReq struct {
-	DBType       string `json:"dbType"`
-	Host           string `json:"host"`
-	Port           *int   `json:"port"`
-	Username       string `json:"username"`
-	Password       string `json:"password"`
-	DatabaseName string `json:"databaseName"`
-	FilePath       string `json:"filePath"`
-}
-
-type TestConnectionResult struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Version string `json:"version"`
-	Cost    int64  `json:"cost"`
-}
-
-// ==================== V2 业务方法 ====================
-
-func (s *DatasourceService) ListDatasource(keyword, dbType string, current, pageSize int) ([]*DatasourceListItem, int64, error) {
-	var list []model.Datasource
-	q := database.DB.Model(&model.Datasource{})
-
-	if keyword != "" {
-		q = q.Where("name LIKE ? OR host LIKE ? OR remark LIKE ?",
-			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-	}
-	if dbType != "" {
-		q = q.Where("db_type = ?", dbType)
-	}
-
-	var total int64
-	q.Count(&total)
-
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	if current < 1 {
-		current = 1
-	}
-	if pageSize < 1 {
-		pageSize = 10
-	}
-
-	offset := (current - 1) * pageSize
-	err := q.Order("updated_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	resultList := make([]*DatasourceListItem, 0, len(list))
-	for _, ds := range list {
-		tags := []string{}
-		if ds.Tags != "" {
-			tags = strings.Split(ds.Tags, ",")
-		}
-
-		resultList = append(resultList, &DatasourceListItem{
-			ID:             ds.DatasourceID,
-			Name:           ds.Name,
-			DatasourceType: ds.DBType,
-			Type:           ds.DBType,
-			DBType:         ds.DBType,
-			Env:            ds.Env,
-			Host:           ds.Host,
-			Port:           ds.Port,
-			Username:       ds.Username,
-			Password:       maskPassword(ds.Password),
-			DatabaseName:   ds.DefaultDB,
-			Description:    ds.Remark,
-			Status:         ds.Status,
-			ConnectStatus:  ds.ConnStatus,
-			CreateTime:     ds.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdateTime:     ds.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Tags:           tags,
-			ColorLabel:     ds.ColorLabel,
-			ConnLatencyMs:  ds.ConnLatencyMs,
-			FilePath:       ds.FilePath,
-			OpenMode:       ds.OpenMode,
-		})
-	}
-
-	return resultList, total, nil
-}
-
-func (s *DatasourceService) GetDatasourceInfo(id string) (*DatasourceDetail, error) {
-	var ds model.Datasource
-	err := database.DB.Where("datasource_id = ?", id).First(&ds).Error
-	if err != nil {
-		return nil, ErrDatasourceNotFound
-	}
-
-	tags := []string{}
-	if ds.Tags != "" {
-		tags = strings.Split(ds.Tags, ",")
-	}
-
-	return &DatasourceDetail{
-		ID:             ds.DatasourceID,
-		Name:           ds.Name,
-		DatasourceType: ds.DBType,
-		Type:           ds.DBType,
-		DBType:         ds.DBType,
-		Env:            ds.Env,
-		Host:           ds.Host,
-		Port:           ds.Port,
-		Username:       ds.Username,
-		Password:       maskPassword(ds.Password),
-		DatabaseName:   ds.DefaultDB,
-		Description:    ds.Remark,
-		Status:         ds.Status,
-		ConnectStatus:  ds.ConnStatus,
-		CreateTime:     ds.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdateTime:     ds.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Tags:           tags,
-		OwnerId:        ds.CreatedBy,
-		OrgId:          "",
-		ColorLabel:     ds.ColorLabel,
-		FilePath:       ds.FilePath,
-		OpenMode:       ds.OpenMode,
-	}, nil
-}
-
-func (s *DatasourceService) CreateDatasource(req *CreateDatasourceReq, userId string) (*DatasourceDetail, error) {
-	if req.Name == "" {
-		return nil, errors.New("名称不能为空")
-	}
-	if len(req.Name) > 128 {
-		return nil, errors.New("名称长度不能超过128个字符")
-	}
-
-	dbType := strings.ToLower(req.DBType)
-	if dbType == "" {
-		dbType = strings.ToLower(req.Type)
-	}
-	if dbType == "" {
-		dbType = strings.ToLower(req.DatasourceType)
-	}
-	if !model.IsSupportedDBType(dbType) {
-		return nil, errors.New("不支持的数据库类型")
-	}
-	if req.Env == "" {
-		return nil, errors.New("环境不能为空")
-	}
-
-	var count int64
-	database.DB.Model(&model.Datasource{}).Where("name = ?", req.Name).Count(&count)
-	if count > 0 {
-		return nil, errors.New("数据源名称已存在")
-	}
-
-	ds := &model.Datasource{
-		Name:       req.Name,
-		DBType:     dbType,
-		Env:        req.Env,
-		Host:       req.Host,
-		Username:   req.Username,
-		DefaultDB:  req.DatabaseName,
-		Remark:     req.Description,
-		Status:     model.StatusActive,
-		ConnStatus: "unknown",
-		FilePath:   req.FilePath,
-		OpenMode:   strings.ToLower(req.OpenMode),
-		ColorLabel: req.ColorLabel,
-	}
-
-	if ds.ColorLabel == "" {
-		ds.ColorLabel = "blue"
-	}
-	if dbType == "sqlite" && ds.OpenMode == "" {
-		ds.OpenMode = "rw"
-	}
-
-	if req.Port != nil && *req.Port > 0 {
-		ds.Port = *req.Port
-	} else {
-		switch dbType {
-		case "mysql":
-			ds.Port = 3306
-		case "tidb":
-			ds.Port = 4000
-		}
-	}
-
-	if req.Tags != nil {
-		ds.Tags = strings.Join(req.Tags, ",")
-	}
-
-	ds.DatasourceID = uuid.New().String()
-	ds.CreatedAt = time.Now()
-	ds.UpdatedAt = time.Now()
-	ds.CreatedBy = userId
-
-	if req.Password != "" {
-		encPwd, err := crypto.EncryptAES(req.Password, config.App.AESKey)
-		if err != nil {
-			return nil, err
-		}
-		ds.Password = encPwd
-	}
-
-	err := database.DB.Create(ds).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return s.GetDatasourceInfo(ds.DatasourceID)
-}
-
-func (s *DatasourceService) UpdateDatasource(id string, req *UpdateDatasourceReq) (*DatasourceDetail, error) {
-	var ds model.Datasource
-	err := database.DB.Where("datasource_id = ?", id).First(&ds).Error
-	if err != nil {
-		return nil, ErrDatasourceNotFound
-	}
-
-	updates := map[string]interface{}{
-		"updated_at": time.Now(),
-	}
-
-	if req.Name != "" {
-		updates["name"] = req.Name
-	}
-	if req.Env != "" {
-		updates["env"] = req.Env
-	}
-	if req.Host != "" {
-		updates["host"] = req.Host
-	}
-	if req.Port != nil && *req.Port > 0 {
-		updates["port"] = *req.Port
-	}
-	if req.Username != "" {
-		updates["username"] = req.Username
-	}
-	if req.Password != "" {
-		encPwd, err := crypto.EncryptAES(req.Password, config.App.AESKey)
-		if err != nil {
-			return nil, err
-		}
-		updates["password"] = encPwd
-	}
-	if req.DatabaseName != "" {
-		updates["default_db"] = req.DatabaseName
-	}
-	if req.Description != "" {
-		updates["remark"] = req.Description
-	}
-	if req.Tags != nil {
-		updates["tags"] = strings.Join(req.Tags, ",")
-	}
-	if req.FilePath != "" {
-		updates["file_path"] = req.FilePath
-	}
-	if req.OpenMode != "" {
-		updates["open_mode"] = strings.ToLower(req.OpenMode)
-	}
-	if req.ColorLabel != "" {
-		updates["color_label"] = req.ColorLabel
-	}
-	if req.Status != "" {
-		updates["status"] = req.Status
-	}
-
-	err = database.DB.Model(&model.Datasource{}).Where("datasource_id = ?", id).Updates(updates).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return s.GetDatasourceInfo(id)
-}
-
-func (s *DatasourceService) DeleteDatasource(id string) error {
-	var ds model.Datasource
-	err := database.DB.Where("datasource_id = ?", id).First(&ds).Error
-	if err != nil {
-		return ErrDatasourceNotFound
-	}
-
-	database.DB.Where("datasource_id = ?", id).Delete(&model.SQLHistory{})
-	return database.DB.Where("datasource_id = ?", id).Delete(&model.Datasource{}).Error
-}
-
-func (s *DatasourceService) TestConnection(req *TestConnectionReq) (*TestConnectionResult, error) {
-	port := 0
-	if req.Port != nil {
-		port = *req.Port
-	}
-
-	params := &dbtype.ConnectionParams{
-		Type:     req.DBType,
-		Host:     req.Host,
-		Port:     port,
-		Username: req.Username,
-		Password: req.Password,
-		Database: req.DatabaseName,
-		FilePath: req.FilePath,
-	}
-
-	result := dbtype.TestConnect(params)
-
-	msg := result.Message
-	if len(msg) > 200 {
-		msg = msg[:200]
-	}
-
-	return &TestConnectionResult{
-		Success: result.Success,
-		Message: msg,
-		Version: result.Version,
-		Cost:    result.LatencyMs,
-	}, nil
-}
-
-func (s *DatasourceService) TestConnectionInternal(ds *model.Datasource) {
-	plainPwd := ds.Password
-	if ds.Password != "" {
-		decrypted, err := crypto.DecryptAES(ds.Password, config.App.AESKey)
-		if err == nil {
-			plainPwd = decrypted
-		}
-	}
-
-	params := &dbtype.ConnectionParams{
-		Type:     ds.DBType,
-		Host:     ds.Host,
-		Port:     ds.Port,
-		Username: ds.Username,
-		Password: plainPwd,
-		Database: ds.DefaultDB,
-		FilePath: ds.FilePath,
-	}
-
-	result := dbtype.TestConnect(params)
-
-	status := "fail"
-	if result.Success {
-		status = "ok"
-	}
-
-	database.DB.Model(&model.Datasource{}).Where("datasource_id = ?", ds.DatasourceID).Updates(map[string]interface{}{
-		"conn_status":       status,
-		"version":           result.Version,
-		"conn_latency_ms":  result.LatencyMs,
-		"last_conn_test_at": time.Now(),
-		"updated_at":        time.Now(),
-	})
-}
-
-func (s *DatasourceService) ListRecentlyDatasource(limit int) ([]*DatasourceListItem, error) {
-	if limit <= 0 {
-		limit = 8
-	}
-	if limit > 100 {
-		limit = 100
-	}
-
-	var list []model.Datasource
-	err := database.DB.Order("updated_at DESC").Limit(limit).Find(&list).Error
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]*DatasourceListItem, 0, len(list))
-	for _, ds := range list {
-		tags := []string{}
-		if ds.Tags != "" {
-			tags = strings.Split(ds.Tags, ",")
-		}
-
-		result = append(result, &DatasourceListItem{
-			ID:             ds.DatasourceID,
-			Name:           ds.Name,
-			DatasourceType: ds.DBType,
-			Type:           ds.DBType,
-			DBType:         ds.DBType,
-			Env:            ds.Env,
-			Host:           ds.Host,
-			Port:           ds.Port,
-			Username:       ds.Username,
-			Password:       maskPassword(ds.Password),
-			DatabaseName:   ds.DefaultDB,
-			Description:    ds.Remark,
-			Status:         ds.Status,
-			ConnectStatus:  ds.ConnStatus,
-			CreateTime:     ds.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdateTime:     ds.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Tags:           tags,
-			ColorLabel:     ds.ColorLabel,
-			ConnLatencyMs:  ds.ConnLatencyMs,
-			FilePath:       ds.FilePath,
-			OpenMode:       ds.OpenMode,
-		})
-	}
-
-	return result, nil
-}
-
-// ==================== V1 兼容方法 ====================
-
-func (s *DatasourceService) Create(ds *model.Datasource, rawPassword string, createdBy, createdByName string) error {
-	if ds == nil {
-		return errors.New("数据源信息为空")
-	}
-	if strings.TrimSpace(ds.Name) == "" {
-		return errors.New("名称不能为空")
-	}
-	if !model.IsSupportedDBType(ds.DBType) {
-		return errors.New("不支持的数据库类型")
-	}
-
-	if rawPassword != "" {
-		encPwd, err := crypto.EncryptAES(rawPassword, config.App.AESKey)
-		if err != nil {
-			return err
-		}
-		ds.Password = encPwd
-	}
-
-	ds.DatasourceID = uuid.New().String()
-	ds.CreatedBy = createdBy
-	ds.CreatedAt = time.Now()
-	ds.UpdatedAt = time.Now()
-	if ds.Status == "" {
-		ds.Status = model.StatusActive
-	}
-	if ds.Env == "" {
-		ds.Env = "dev"
-	}
-	if ds.ColorLabel == "" {
-		ds.ColorLabel = "blue"
-	}
-	if strings.ToLower(ds.DBType) == "sqlite" && ds.OpenMode == "" {
-		ds.OpenMode = "rw"
-	}
-	return database.DB.Create(ds).Error
-}
-
-func (s *DatasourceService) List(page, pageSize int, keyword, dbType, status, sortBy, businessId, env string) ([]model.Datasource, int64, error) {
-	var list []model.Datasource
-	var total int64
-	q := database.DB.Model(&model.Datasource{})
-	if keyword != "" {
-		q = q.Where("name LIKE ? OR host LIKE ? OR remark LIKE ?", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-	}
-	if dbType != "" {
-		q = q.Where("db_type = ?", dbType)
-	}
-	if status != "" {
-		if status == "connected" || status == "ok" {
-			q = q.Where("conn_status = ?", "ok")
-		} else if status == "failed" || status == "fail" {
-			q = q.Where("conn_status = ?", "fail")
-		} else if status == "untested" {
-			q = q.Where("conn_status IS NULL OR conn_status = '' OR conn_status = 'unknown'")
-		} else {
-			q = q.Where("status = ?", status)
-		}
-	}
-	if businessId != "" {
-		q = q.Where("business_id = ?", businessId)
-	}
-	if env != "" {
-		q = q.Where("env = ?", env)
-	}
-
-	q.Count(&total)
-
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
-
-	orderStr := "created_at DESC"
-	switch strings.ToLower(sortBy) {
-	case "name":
-		orderStr = "name ASC"
-	case "namedesc":
-		orderStr = "name DESC"
-	case "lasttest":
-		orderStr = "last_conn_test_at DESC, created_at DESC"
-	case "recent":
-		orderStr = "updated_at DESC, created_at DESC"
-	case "latency":
-		orderStr = "conn_latency_ms ASC, created_at DESC"
-	}
-
-	err := q.Order(orderStr).Offset(offset).Limit(pageSize).Omit("password").Find(&list).Error
-	return list, total, err
-}
-
+// GetById 根据 ID 查询数据源（包含解密后的密码）
 func (s *DatasourceService) GetById(id string) (*model.Datasource, error) {
 	var ds model.Datasource
 	if err := database.DB.Where("datasource_id = ?", id).First(&ds).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrDatasourceNotFound
+		}
 		return nil, err
 	}
 	if ds.Password != "" {
-		plain, err := crypto.DecryptAES(ds.Password, config.App.AESKey)
-		if err == nil {
+		if plain, err := dbtype.DecryptPassword(ds.Password); err == nil {
 			ds.Password = plain
 		}
 	}
 	return &ds, nil
 }
 
+// GetByIdNoDecrypt 根据 ID 查询数据源（不解密密码），用于列表/详情页返回
 func (s *DatasourceService) GetByIdNoDecrypt(id string) (*model.Datasource, error) {
 	var ds model.Datasource
 	if err := database.DB.Where("datasource_id = ?", id).First(&ds).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrDatasourceNotFound
+		}
 		return nil, err
 	}
+	ds.Password = ""
 	return &ds, nil
 }
 
-func (s *DatasourceService) Update(id string, updates map[string]interface{}, rawPassword string) error {
+// List 分页查询数据源，支持关键字 / 类型 / 状态过滤，可排序
+func (s *DatasourceService) List(page, pageSize int, keyword, dbType, status, sortBy string, extra ...string) ([]*model.Datasource, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	query := database.DB.Model(&model.Datasource{})
+	if keyword != "" {
+		k := "%" + keyword + "%"
+		query = query.Where("name LIKE ? OR host LIKE ? OR remark LIKE ?", k, k, k)
+	}
+	if dbType != "" {
+		query = query.Where("db_type = ?", strings.ToLower(dbType))
+	}
+	if status != "" {
+		query = query.Where("conn_status = ?", status)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var list []*model.Datasource
+	orderExpr := "updated_at DESC"
+	switch strings.ToLower(strings.TrimSpace(sortBy)) {
+	case "name":
+		orderExpr = "name ASC"
+	case "recent", "lasttest":
+		orderExpr = "last_conn_test_at DESC"
+	}
+	if err := query.Order(orderExpr).
+		Limit(pageSize).Offset((page - 1) * pageSize).
+		Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	for _, d := range list {
+		d.Password = ""
+	}
+	return list, total, nil
+}
+
+// Create 创建数据源。密码会被 AES 加密后再写入。
+func (s *DatasourceService) Create(ds *model.Datasource, rawPassword, userId, username string) error {
+	if ds.DatasourceID == "" {
+		ds.DatasourceID = "ds" + time.Now().Format("20060102150405")
+	}
 	if rawPassword != "" {
-		encPwd, err := crypto.EncryptAES(rawPassword, config.App.AESKey)
+		encrypted, err := dbtype.EncryptPassword(rawPassword)
 		if err != nil {
 			return err
 		}
-		updates["password"] = encPwd
+		ds.Password = encrypted
 	}
-	updates["updated_at"] = time.Now()
-	return database.DB.Model(&model.Datasource{}).Where("datasource_id = ?", id).Updates(updates).Error
+	now := time.Now()
+	if ds.CreatedAt.IsZero() {
+		ds.CreatedAt = model.DateTime(now)
+	}
+	ds.UpdatedAt = model.DateTime(now)
+	ds.OwnerID = userId
+	return database.DB.Create(ds).Error
 }
 
+// Update 更新数据源，支持按字段 map 增量更新；提供 rawPassword 时会同步加密更新密码
+// 使用字段白名单避免前端传来的非数据库字段（如 autoCreateServer、createdByName 等）导致 SQL 错误
+func (s *DatasourceService) Update(id string, updates map[string]interface{}, rawPassword string) error {
+	if strings.TrimSpace(id) == "" {
+		return errors.New("数据源 id 不能为空")
+	}
+	// 字段名映射：前端 JSON 字段 -> GORM 数据库列名
+	fieldMap := map[string]string{
+		"name":            "name",
+		"dbType":          "db_type",
+		"host":            "host",
+		"port":            "port",
+		"username":        "username",
+		"defaultDatabase": "default_db",
+		"filePath":        "file_path",
+		"openMode":        "open_mode",
+		"charset":         "charset",
+		"timezone":        "timezone",
+		"sslMode":         "ssl_mode",
+		"sslCaFile":       "ssl_ca_file",
+		"colorLabel":      "color_label",
+		"tags":            "tags",
+		"businessId":      "business_id",
+		"serverId":        "server_id",
+		"projectId":       "project_id",
+		"env":             "env",
+		"remark":          "remark",
+		"timeout":         "timeout",
+		"connStatus":      "conn_status",
+		"connLatencyMs":   "conn_latency_ms",
+		"status":          "status",
+		"readOnly":        "read_only",
+		"version":         "version",
+		"createdBy":       "created_by",
+		"ownerId":         "owner_id",
+		"orgId":           "org_id",
+		"datasourceType":  "datasource_type",
+		"type":            "type",
+	}
+
+	cleaned := map[string]interface{}{}
+	for k, v := range updates {
+		// 处理 sslMode 特殊类型（前端传布尔值，数据库存字符串）
+		if k == "sslMode" {
+			switch val := v.(type) {
+			case bool:
+				if val {
+					cleaned["ssl_mode"] = "true"
+				} else {
+					cleaned["ssl_mode"] = "false"
+				}
+			case string:
+				cleaned["ssl_mode"] = val
+			default:
+				cleaned["ssl_mode"] = "false"
+			}
+			continue
+		}
+		// readOnly 前端传 bool，db 存 tinyint
+		if k == "readOnly" {
+			if b, ok := v.(bool); ok {
+				cleaned["read_only"] = b
+			} else if s2, ok := v.(string); ok {
+				cleaned["read_only"] = s2 == "true" || s2 == "1"
+			}
+			continue
+		}
+		// port/timeout/connLatencyMs 数值类型容错
+		if k == "port" || k == "timeout" || k == "connLatencyMs" {
+			switch val := v.(type) {
+			case float64:
+				cleaned[fieldMap[k]] = int64(val)
+			case int:
+				cleaned[fieldMap[k]] = int64(val)
+			case int64:
+				cleaned[fieldMap[k]] = val
+			case string:
+				if n, err := strconv.ParseInt(val, 10, 64); err == nil {
+					cleaned[fieldMap[k]] = n
+				}
+			}
+			continue
+		}
+		// 只更新白名单中的字段
+		if colName, ok := fieldMap[k]; ok {
+			// 字符串字段去 nil/空指针问题
+			if v == nil {
+				cleaned[colName] = ""
+			} else {
+				cleaned[colName] = v
+			}
+		}
+	}
+	cleaned["updated_at"] = time.Now()
+	if rawPassword != "" {
+		encrypted, err := dbtype.EncryptPassword(rawPassword)
+		if err != nil {
+			return err
+		}
+		cleaned["password"] = encrypted
+	}
+	return database.DB.Model(&model.Datasource{}).
+		Where("datasource_id = ?", id).
+		Updates(cleaned).Error
+}
+
+// Delete 删除数据源
 func (s *DatasourceService) Delete(id string) error {
 	return database.DB.Where("datasource_id = ?", id).Delete(&model.Datasource{}).Error
 }
 
-func (s *DatasourceService) Copy(id string, createdBy, createdByName string) (*model.Datasource, error) {
-	ds, err := s.GetById(id)
+// Copy 复制数据源（包括密码），新名称默认追加 "-copy"
+func (s *DatasourceService) Copy(id, userId, username string) (*model.Datasource, error) {
+	src, err := s.GetById(id)
 	if err != nil {
 		return nil, err
 	}
-
-	newDs := &model.Datasource{
-		Name:       ds.Name + " 副本",
-		DBType:     ds.DBType,
-		Host:       ds.Host,
-		Port:       ds.Port,
-		Username:   ds.Username,
-		DefaultDB:  ds.DefaultDB,
-		FilePath:   ds.FilePath,
-		OpenMode:   ds.OpenMode,
-		ColorLabel: ds.ColorLabel,
-		Tags:       ds.Tags,
-		Env:        ds.Env,
-		Remark:     ds.Remark,
-		Status:     ds.Status,
-		Version:    "",
-		ConnStatus: "",
+	encrypted := ""
+	if src.Password != "" {
+		if enc, encErr := dbtype.EncryptPassword(src.Password); encErr != nil {
+			return nil, fmt.Errorf("password encrypt failed: %w", encErr)
+		} else {
+			encrypted = enc
+		}
 	}
-
-	rawPwd := ds.Password
-	if err := s.Create(newDs, rawPwd, createdBy, createdByName); err != nil {
+	now := time.Now()
+	newDs := &model.Datasource{
+		DatasourceID:  "ds" + time.Now().Format("20060102150405"),
+		Name:          src.Name + "-copy",
+		DBType:        src.DBType,
+		Host:          src.Host,
+		Port:          src.Port,
+		Username:      src.Username,
+		Password:      encrypted,
+		DefaultDB:     src.DefaultDB,
+		FilePath:      src.FilePath,
+		OpenMode:      src.OpenMode,
+		Charset:       src.Charset,
+		Timezone:      src.Timezone,
+		SSLMode:       src.SSLMode,
+		SSLCAFile:     src.SSLCAFile,
+		ReadOnly:      src.ReadOnly,
+		ColorLabel:    src.ColorLabel,
+		Tags:          src.Tags,
+		BusinessID:    src.BusinessID,
+		ServerID:      src.ServerID,
+		ProjectID:     src.ProjectID,
+		Env:           src.Env,
+		Remark:        src.Remark,
+		Status:        src.Status,
+		Timeout:       src.Timeout,
+		OwnerID:       userId,
+		CreatedAt:     model.DateTime(now),
+		UpdatedAt:     model.DateTime(now),
+		ConnStatus:    "",
+		ConnLatencyMs: 0,
+	}
+	if err := database.DB.Create(newDs).Error; err != nil {
 		return nil, err
 	}
+	newDs.Password = ""
 	return newDs, nil
 }
 
-func (s *DatasourceService) Stats() (map[string]interface{}, error) {
-	var total int64
-	database.DB.Model(&model.Datasource{}).Count(&total)
-
-	typeResult := make(map[string]int)
-	rows, err := database.DB.Model(&model.Datasource{}).Select("db_type, COUNT(*) as count").Group("db_type").Rows()
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var t string
-			var c int64
-			rows.Scan(&t, &c)
-			typeResult[strings.ToLower(t)] = int(c)
-		}
-	}
-
-	envResult := make(map[string]int)
-	rows2, err2 := database.DB.Model(&model.Datasource{}).Select("env, COUNT(*) as count").Group("env").Rows()
-	if err2 == nil {
-		defer rows2.Close()
-		for rows2.Next() {
-			var e string
-			var c int64
-			rows2.Scan(&e, &c)
-			envResult[e] = int(c)
-		}
-	}
-
-	var okCount, failCount int64
-	database.DB.Model(&model.Datasource{}).Where("conn_status = ?", "ok").Count(&okCount)
-	database.DB.Model(&model.Datasource{}).Where("conn_status = ?", "fail").Count(&failCount)
-
-	return map[string]interface{}{
-		"total":    total,
-		"byType":   typeResult,
-		"byEnv":    envResult,
-		"ok":       okCount,
-		"failed":   failCount,
-		"untested": total - okCount - failCount,
-	}, nil
-}
-
-func (s *DatasourceService) UpdateConnStatus(id, status string, latencyMs int64, version string) {
-	now := time.Now()
+// UpdateConnStatus 更新数据源连接状态、延迟、版本
+func (s *DatasourceService) UpdateConnStatus(id, connStatus string, latencyMs int64, version string) error {
 	updates := map[string]interface{}{
-		"conn_status":       status,
-		"last_conn_test_at": &now,
-		"updated_at":        now,
-	}
-	if latencyMs > 0 {
-		updates["conn_latency_ms"] = latencyMs
+		"conn_status":       connStatus,
+		"conn_latency_ms":   latencyMs,
+		"last_conn_test_at": time.Now(),
+		"updated_at":        time.Now(),
 	}
 	if version != "" {
 		updates["version"] = version
 	}
-	database.DB.Model(&model.Datasource{}).Where("datasource_id = ?", id).Updates(updates)
+	return database.DB.Model(&model.Datasource{}).
+		Where("datasource_id = ?", id).
+		Updates(updates).Error
 }
 
-func (s *DatasourceService) UpdateConnStatusFail(id, message string) {
-	now := time.Now()
-	database.DB.Model(&model.Datasource{}).Where("datasource_id = ?", id).Updates(map[string]interface{}{
-		"conn_status":       "fail",
-		"last_conn_test_at": &now,
-		"updated_at":        now,
-		"remark":            message,
-	})
-}
-
-func (s *DatasourceService) ListByBusiness(businessId string) ([]model.Datasource, error) {
-	var list []model.Datasource
-	err := database.DB.Where("business_id = ?", businessId).Omit("password").Find(&list).Error
-	return list, err
+// Stats 返回数据源统计（总数 / 成功 / 失败 / 未测试）
+func (s *DatasourceService) Stats() (map[string]interface{}, error) {
+	var total int64
+	if err := database.DB.Model(&model.Datasource{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
+	var ok, fail int64
+	_ = database.DB.Model(&model.Datasource{}).Where("conn_status = ?", model.ConnStatusOK).Count(&ok).Error
+	_ = database.DB.Model(&model.Datasource{}).Where("conn_status = ?", model.ConnStatusFail).Count(&fail).Error
+	return map[string]interface{}{
+		"total":    total,
+		"success":  ok,
+		"fail":     fail,
+		"untested": total - ok - fail,
+	}, nil
 }

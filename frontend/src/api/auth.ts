@@ -45,7 +45,7 @@ export function changePassword(oldPassword: string, newPassword: string) {
 
 export function listAccounts(current: number, pageSize: number, keyword?: string) {
   return request({
-    url: '/accounts',
+    url: '/users',
     method: 'GET',
     params: { current, pageSize, keyword }
   })
@@ -53,7 +53,7 @@ export function listAccounts(current: number, pageSize: number, keyword?: string
 
 export function createAccount(data: any) {
   return request({
-    url: '/accounts',
+    url: '/users',
     method: 'POST',
     data
   })
@@ -61,7 +61,7 @@ export function createAccount(data: any) {
 
 export function updateAccount(id: string, data: any) {
   return request({
-    url: '/accounts/' + id,
+    url: '/users/' + id,
     method: 'PUT',
     data
   })
@@ -69,14 +69,14 @@ export function updateAccount(id: string, data: any) {
 
 export function deleteAccount(id: string) {
   return request({
-    url: '/accounts/' + id,
+    url: '/users/' + id,
     method: 'DELETE'
   })
 }
 
 export function resetAccountPassword(id: string, password: string) {
   return request({
-    url: '/accounts/' + id + '/resetPassword',
+    url: '/users/' + id + '/reset-password',
     method: 'POST',
     data: { password }
   })

@@ -23,7 +23,8 @@ type ReviewResult struct {
 
 var (
 	deletePattern = regexp.MustCompile(`(?i)^\s*(DELETE|DROP|TRUNCATE|ALTER\s+TABLE|UPDATE)\s+`)
-	selectPattern = regexp.MustCompile(`(?i)^\s*SELECT\s+`)
+	// 返回结果集的语句统一视为“查询类”，包括 SHOW / DESC / DESCRIBE / EXPLAIN / ANALYZE (MySQL) / CHECK TABLE / WITH / PRAGMA (SQLite) 等
+	selectPattern = regexp.MustCompile(`(?i)^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|ANALYZE|CHECK\s+TABLE|WITH|PRAGMA)\b`)
 	dmlPattern    = regexp.MustCompile(`(?i)^\s*(INSERT|UPDATE|DELETE|REPLACE)\s+`)
 	ddlPattern    = regexp.MustCompile(`(?i)^\s*(CREATE|ALTER|DROP|TRUNCATE|RENAME)\s+`)
 	wherePattern  = regexp.MustCompile(`(?i)\bWHERE\b`)

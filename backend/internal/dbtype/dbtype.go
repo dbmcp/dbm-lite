@@ -7,10 +7,15 @@
 package dbtype
 
 import (
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -19,6 +24,7 @@ import (
 	"dbm-lite/config"
 	"dbm-lite/pkg/crypto"
 
+	dmysql "github.com/go-sql-driver/mysql"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -65,6 +71,9 @@ var (
 	connLock  sync.RWMutex
 	txMap     = make(map[string]*sql.Tx)
 	txLock    sync.RWMutex
+
+	tlsConfigRegistry = make(map[string]*tls.Config)
+	tlsRegistryLock   sync.Mutex
 )
 
 func SupportedTypes() []string {
@@ -84,6 +93,43 @@ func IsSSL(mode string) bool {
 	return false
 }
 
+func registerTLSConfig(caInput string) (string, error) {
+	caData := []byte(caInput)
+
+	tlsRegistryLock.Lock()
+	defer tlsRegistryLock.Unlock()
+
+	sum := sha256.Sum256(caData)
+	name := "dbmlite_" + hex.EncodeToString(sum[:12])
+
+	if _, ok := tlsConfigRegistry[name]; ok {
+		return name, nil
+	}
+
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	if ok := rootCAs.AppendCertsFromPEM(caData); !ok {
+		return "", fmt.Errorf("failed to parse CA certificate")
+	}
+
+	tlsCfg := &tls.Config{
+		RootCAs:    rootCAs,
+		MinVersion: tls.VersionTLS12,
+	}
+
+	if err := dmysql.RegisterTLSConfig(name, tlsCfg); err != nil {
+		if !strings.Contains(err.Error(), "already registered") {
+			return "", fmt.Errorf("register tls config failed: %w", err)
+		}
+	}
+
+	tlsConfigRegistry[name] = tlsCfg
+	return name, nil
+}
+
 func buildDSN(p *ConnectionParams) (string, string, error) {
 	switch strings.ToLower(p.Type) {
 	case TypeMySQL, TypeTiDB:
@@ -97,24 +143,44 @@ func buildDSN(p *ConnectionParams) (string, string, error) {
 		}
 		timeoutSec := p.TimeoutSec
 		if timeoutSec <= 0 {
-			timeoutSec = 10
+			timeoutSec = 60
 		}
 		port := p.Port
 		if port <= 0 {
 			port = 3306
 		}
-		// 组装参数列表
 		params := []string{
 			fmt.Sprintf("charset=%s", charset),
 			"parseTime=True",
-			fmt.Sprintf("loc=%s", timezone),
+			fmt.Sprintf("loc=%s", url.QueryEscape(timezone)),
 			fmt.Sprintf("timeout=%ds", timeoutSec),
 		}
 		if IsSSL(p.SSLMode) {
-			params = append(params, "tls=custom")
+			trimmedCA := strings.TrimSpace(p.SSLCAFile)
+			if trimmedCA == "" {
+				params = append(params, "tls=true")
+			} else {
+				caData := ""
+				if strings.Contains(trimmedCA, "-----BEGIN") {
+					caData = trimmedCA
+				} else {
+					data, err := os.ReadFile(trimmedCA)
+					if err != nil {
+						return "", "", fmt.Errorf("read CA file failed: %w", err)
+					}
+					caData = string(data)
+				}
+				tlsName, err := registerTLSConfig(caData)
+				if err != nil {
+					return "", "", fmt.Errorf("register tls config failed: %w", err)
+				}
+				params = append(params, "tls="+tlsName)
+			}
 		}
+		escapedUser := url.QueryEscape(p.Username)
+		escapedPwd := url.QueryEscape(p.Password)
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s",
-			p.Username, p.Password, p.Host, port, p.Database, strings.Join(params, "&"))
+			escapedUser, escapedPwd, p.Host, port, p.Database, strings.Join(params, "&"))
 		return dsn, p.Type, nil
 	case TypeSQLite:
 		path := p.FilePath
@@ -125,8 +191,6 @@ func buildDSN(p *ConnectionParams) (string, string, error) {
 		if mode != "rw" && mode != "ro" {
 			mode = "rw"
 		}
-		// modernc.org/sqlite 使用 DSN 格式: file:///path?mode=rw
-		// gorm.io/driver/sqlite 直接使用 file path
 		if mode == "ro" {
 			return path + "?_pragma=journal_mode(WAL)&mode=ro", TypeSQLite, nil
 		}
@@ -136,7 +200,11 @@ func buildDSN(p *ConnectionParams) (string, string, error) {
 	}
 }
 
-// ValidateSQLiteFile 校验指定路径是否是合法的 SQLite 数据库文件
+// BuildDSN 对外暴露的 DSN 构造函数，便于测试/复现连接字符串构造
+func BuildDSN(p *ConnectionParams) (string, string, error) {
+	return buildDSN(p)
+}
+
 func ValidateSQLiteFile(path string) error {
 	if path == "" {
 		return errors.New("SQLite 文件路径不能为空")
@@ -213,7 +281,9 @@ func Connect(key string, p *ConnectionParams) (*ConnectionInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("connect failed: %w", err)
 		}
-		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxOpenConns(5)
+		sqlDB.SetMaxIdleConns(2)
+		sqlDB.SetConnMaxLifetime(30 * time.Minute)
 		if err = sqlDB.Ping(); err != nil {
 			sqlDB.Close()
 			return nil, fmt.Errorf("ping failed: %w", err)
@@ -236,25 +306,24 @@ func Connect(key string, p *ConnectionParams) (*ConnectionInfo, error) {
 	return ci, nil
 }
 
-// TestConnect 先验证数据库实例连通性（不依赖具体数据库名），
-// 如配置了 database 再验证该数据库是否存在。记录延迟和版本信息。
 func TestConnect(p *ConnectionParams) *TestResult {
 	result := &TestResult{Success: false, Message: "", LatencyMs: 0, Version: ""}
 	start := time.Now()
 	dbType := strings.ToLower(p.Type)
 
-	// --- 第一步：连接到实例（不指定具体数据库） ---
 	instanceParams := &ConnectionParams{
-		Type:     p.Type,
-		Host:     p.Host,
-		Port:     p.Port,
-		Username: p.Username,
-		Password: p.Password,
-		Database: "", // 关键：空数据库名以验证实例连通性
-		FilePath: p.FilePath,
-		OpenMode: p.OpenMode,
-		Charset:  p.Charset,
-		Timezone: p.Timezone,
+		Type:      p.Type,
+		Host:      p.Host,
+		Port:      p.Port,
+		Username:  p.Username,
+		Password:  p.Password,
+		Database:  "",
+		FilePath:  p.FilePath,
+		OpenMode:  p.OpenMode,
+		Charset:   p.Charset,
+		Timezone:  p.Timezone,
+		SSLMode:   p.SSLMode,
+		SSLCAFile: p.SSLCAFile,
 	}
 	instanceDSN, _, err := buildDSN(instanceParams)
 	if err != nil {
@@ -280,7 +349,6 @@ func TestConnect(p *ConnectionParams) *TestResult {
 	db.SetMaxOpenConns(1)
 	db.SetConnMaxLifetime(30 * time.Second)
 
-	// 执行真实连接
 	pingStart := time.Now()
 	if err = db.Ping(); err != nil {
 		lat := time.Since(pingStart).Milliseconds()
@@ -300,7 +368,6 @@ func TestConnect(p *ConnectionParams) *TestResult {
 		return result
 	}
 
-	// --- 第二步：查询版本信息 ---
 	var version string
 	switch dbType {
 	case TypeMySQL, TypeTiDB:
@@ -311,7 +378,6 @@ func TestConnect(p *ConnectionParams) *TestResult {
 		_ = row.Scan(&version)
 	}
 
-	// --- 第三步（可选）：如果指定了 database，验证该数据库是否存在 ---
 	if p.Database != "" {
 		dbExists := false
 		switch dbType {
@@ -322,7 +388,6 @@ func TestConnect(p *ConnectionParams) *TestResult {
 				dbExists = true
 			}
 		case TypeSQLite:
-			// SQLite 通过 PRAGMA database_list 检查
 			var seq int
 			var name, f string
 			rows, qErr := db.Query("PRAGMA database_list")
@@ -415,26 +480,22 @@ func BeginTransaction(key string) error {
 func CommitTransaction(key string) error {
 	txLock.Lock()
 	tx, ok := txMap[key]
-	if !ok {
-		txLock.Unlock()
-		return fmt.Errorf("transaction not found: %s", key)
-	}
 	delete(txMap, key)
 	txLock.Unlock()
-
+	if !ok {
+		return fmt.Errorf("transaction not found: %s", key)
+	}
 	return tx.Commit()
 }
 
 func RollbackTransaction(key string) error {
 	txLock.Lock()
 	tx, ok := txMap[key]
-	if !ok {
-		txLock.Unlock()
-		return fmt.Errorf("transaction not found: %s", key)
-	}
 	delete(txMap, key)
 	txLock.Unlock()
-
+	if !ok {
+		return fmt.Errorf("transaction not found: %s", key)
+	}
 	return tx.Rollback()
 }
 
@@ -442,4 +503,50 @@ func GetTransaction(key string) *sql.Tx {
 	txLock.RLock()
 	defer txLock.RUnlock()
 	return txMap[key]
+}
+
+func DefaultPort(dbType string) int {
+	switch strings.ToLower(dbType) {
+	case TypeMySQL:
+		return 3306
+	case TypeTiDB:
+		return 4000
+	default:
+		return 0
+	}
+}
+
+func SystemDatabases(dbType string) []string {
+	switch strings.ToLower(dbType) {
+	case TypeMySQL:
+		return []string{"information_schema", "mysql", "performance_schema", "sys"}
+	case TypeTiDB:
+		return []string{"information_schema", "mysql", "performance_schema", "sys", "metrics_schema"}
+	default:
+		return nil
+	}
+}
+
+func IsSystemDatabase(dbType, dbName string) bool {
+	systems := SystemDatabases(dbType)
+	for _, s := range systems {
+		if strings.EqualFold(s, dbName) {
+			return true
+		}
+	}
+	return false
+}
+
+func SupportFeature(dbType, feature string) bool {
+	t := strings.ToLower(dbType)
+	switch strings.ToLower(feature) {
+	case "procedure", "trigger", "delimiter", "repair", "fk", "fulltext", "spatial":
+		return t == TypeMySQL
+	case "analyze", "optimize":
+		return t == TypeMySQL || t == TypeTiDB
+	case "table-info":
+		return true
+	default:
+		return true
+	}
 }
