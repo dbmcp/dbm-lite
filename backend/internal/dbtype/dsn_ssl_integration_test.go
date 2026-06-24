@@ -8,9 +8,9 @@ import (
 
 func TestDSNSSLBuildScenarios(t *testing.T) {
 	scenarios := []struct {
-		name       string
-		params     *ConnectionParams
-		wantContain string
+		name           string
+		params         *ConnectionParams
+		wantContain    string
 		wantNotContain []string
 	}{
 		{
@@ -24,7 +24,7 @@ func TestDSNSSLBuildScenarios(t *testing.T) {
 				Database: "test",
 				SSLMode:  "true",
 			},
-			wantContain: "tls=true",
+			wantContain:    "tls=true",
 			wantNotContain: []string{"tls=skip-verify", "tls=dbmlite_"},
 		},
 		{
@@ -39,7 +39,7 @@ func TestDSNSSLBuildScenarios(t *testing.T) {
 				SSLMode:   "true",
 				SSLCAFile: "/etc/ssl/certs/ca-certificates.crt",
 			},
-			wantContain: "tls=dbmlite_",
+			wantContain:    "tls=dbmlite_",
 			wantNotContain: []string{"tls=true", "tls=skip-verify"},
 		},
 		{
@@ -67,7 +67,7 @@ func TestDSNSSLBuildScenarios(t *testing.T) {
 				Database: "test",
 				SSLMode:  "require",
 			},
-			wantContain: "tls=true",
+			wantContain:    "tls=true",
 			wantNotContain: []string{"tls=skip-verify", "tls=dbmlite_"},
 		},
 		{
@@ -82,7 +82,7 @@ func TestDSNSSLBuildScenarios(t *testing.T) {
 				SSLMode:   "true",
 				SSLCAFile: "-----BEGIN CERTIFICATE-----\nMIIDazCCAlOgAwIBAgIUXXXXX\n-----END CERTIFICATE-----",
 			},
-			wantContain: "tls=dbmlite_",
+			wantContain:    "tls=dbmlite_",
 			wantNotContain: []string{"tls=true", "tls=skip-verify"},
 		},
 	}
@@ -110,4 +110,5 @@ func TestDSNSSLBuildScenarios(t *testing.T) {
 			fmt.Printf("\n%s\n  OK   - DSN: %s\n", sc.name, dsn)
 		})
 	}
-	fmt.Println("\n
+	fmt.Println("\n=== All Tests Completed ===")
+}

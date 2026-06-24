@@ -89,6 +89,17 @@ export function listSqlHistory(
   })
 }
 
+export function countSqlHistory(
+  datasourceId: string,
+  keyword?: string
+) {
+  return request<{ count: number }>({
+    url: '/dataquery/sqlHistory/count',
+    method: 'GET',
+    params: { datasourceId, keyword }
+  })
+}
+
 export function getDatabases(id: string) {
   return request<string[]>({
     url: '/dataquery/datasources/' + id + '/databases',

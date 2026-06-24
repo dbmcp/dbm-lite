@@ -160,7 +160,7 @@
         </div>
       </el-header>
 
-      <el-main style="padding:0;background:#ffffff;overflow:hidden;">
+      <el-main style="padding:0;background:#ffffff;overflow:auto;">
         <router-view />
       </el-main>
     </el-container>

@@ -86,6 +86,7 @@ func main() {
 				dataquery.POST("/sql/cancel", sqlH.CancelExecute)
 				historyAPI := dataquery.Group("/sqlHistory")
 				historyAPI.GET("/list", sqlH.GetHistory)
+				historyAPI.GET("/count", sqlH.GetHistoryCount)
 
 				savedAPI := dataquery.Group("/savedQueries")
 				savedAPI.GET("", sqlH.ListSavedQueries)

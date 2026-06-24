@@ -17,7 +17,7 @@
       <div class="rt-tab" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'">
         <span class="rt-tab-icon">🕐</span>
         <span>历史</span>
-        <span v-if="historyList.length > 0" class="rt-tab-count">{{ historyList.length }}</span>
+        <span v-if="props.historyTotal > 0" class="rt-tab-count">{{ props.historyTotal }}</span>
       </div>
       <div class="rt-tab" :class="{ active: activeTab === 'ddl' }" @click="activeTab = 'ddl'">
         <span class="rt-tab-icon">📝</span>
@@ -327,7 +327,7 @@
               </thead>
               <tbody>
                 <tr v-for="(h, idx) in paginatedHistory" :key="'h-' + idx" :class="{ odd: idx % 2 === 0 }">
-                  <td>{{ h.time || '-' }}</td>
+                  <td>{{ h.createdAt || h.time || '-' }}</td>
                   <td :title="h.datasourceName">{{ (h.datasourceName || '').substring(0, 15) }}</td>
                   <td>{{ h.database || '-' }}</td>
                   <td class="rt-history-sql" :title="h.sql">{{ h.sql || '' }}</td>
@@ -342,29 +342,32 @@
             </table>
           </div>
           <div class="rt-history-pagination">
+            <div class="rt-history-pagination-left">
+              <button class="rt-refresh-btn" @click="emit('refresh')" title="刷新历史">⟳</button>
+            </div>
             <div class="rt-history-pagination-right">
-              <button class="rt-page-btn" @click="historyPage = 1" :disabled="historyPage <= 1" title="首页">
+              <button class="rt-page-btn" @click="goHistoryPage(1)" :disabled="historyPage <= 1" title="首页">
                 <svg viewBox="0 0 16 16" width="12" height="12"><path d="M2 4v8h2V4H2zm4 0l4 4-4 4V4z"/></svg>
               </button>
-              <button class="rt-page-btn" @click="historyPage = Math.max(1, historyPage - 1)" :disabled="historyPage <= 1" title="上一页">
+              <button class="rt-page-btn" @click="goHistoryPage(historyPage - 1)" :disabled="historyPage <= 1" title="上一页">
                 <svg viewBox="0 0 16 16" width="12" height="12"><path d="M6 4l-4 4 4 4V4z"/></svg>
               </button>
               <span class="rt-page-info"><strong style="color: #28a745;">第 {{ historyPage }} 页</strong> (共 {{ historyTotalPages }} 页)</span>
-              <button class="rt-page-btn" @click="historyPage = Math.min(historyTotalPages, historyPage + 1)" :disabled="historyPage >= historyTotalPages" title="下一页">
+              <button class="rt-page-btn" @click="goHistoryPage(historyPage + 1)" :disabled="historyPage >= historyTotalPages" title="下一页">
                 <svg viewBox="0 0 16 16" width="12" height="12"><path d="M10 4l4 4-4 4V4z"/></svg>
               </button>
-              <button class="rt-page-btn" @click="historyPage = historyTotalPages" :disabled="historyPage >= historyTotalPages" title="末页">
+              <button class="rt-page-btn" @click="goHistoryPage(historyTotalPages)" :disabled="historyPage >= historyTotalPages" title="末页">
                 <svg viewBox="0 0 16 16" width="12" height="12"><path d="M14 4v8h-2V4h2zm-4 0l-4 4 4 4V4z"/></svg>
               </button>
               <span class="rt-page-separator"></span>
-              <select class="rt-page-size" v-model="historyPageSize" @change="loadHistory">
+              <select class="rt-page-size" v-model="historyPageSize" @change="onHistoryPageSizeChange">
                 <option :value="10">10</option>
                 <option :value="20">20</option>
                 <option :value="50">50</option>
                 <option :value="100">100</option>
               </select>
               <span class="rt-page-label">条/页</span>
-              <span class="rt-page-records"><strong style="color: #1976d2;">{{ historyList.length }}</strong> 条记录</span>
+              <span class="rt-page-records"><strong style="color: #1976d2;">{{ props.historyTotal || historyList.length }}</strong> 条记录</span>
               <span class="rt-page-separator">|</span>
               <span class="rt-page-updated">上次更新: {{ lastUpdateTime }}</span>
             </div>
@@ -437,6 +440,7 @@ interface FavoriteItem {
 const props = withDefaults(defineProps<{
   results?: any[]
   history?: any[]
+  historyTotal?: number
   messages?: any[]
   explain?: any[]
   ddlText?: string
@@ -447,6 +451,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   results: () => [],
   history: () => [],
+  historyTotal: 0,
   messages: () => [],
   explain: () => [],
   ddlText: '',
@@ -464,6 +469,7 @@ const emit = defineEmits<{
   (e: 'apply-favorite', sql: string): void
   (e: 'remove-favorite', id: string): void
   (e: 'refresh-single', rId: string, idx: number, sql: string): void
+  (e: 'load-history-page', page: number, pageSize: number): void
 }>()
 
 const activeTab = ref('result')
@@ -521,12 +527,26 @@ const hasDataResults = computed(() => {
   })
 })
 
-const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyList.value.length / historyPageSize.value)))
+const historyTotalPages = computed(() => {
+  const total = props.historyTotal || historyList.value.length
+  return Math.max(1, Math.ceil(total / historyPageSize.value))
+})
+
+function goHistoryPage(page: number) {
+  const total = historyTotalPages.value
+  if (page < 1) page = 1
+  if (page > total) page = total
+  historyPage.value = page
+  emit('load-history-page', page, historyPageSize.value)
+}
+
+function onHistoryPageSizeChange() {
+  historyPage.value = 1
+  emit('load-history-page', 1, historyPageSize.value)
+}
 
 const paginatedHistory = computed(() => {
-  const list = historyList.value
-  const start = (historyPage.value - 1) * historyPageSize.value
-  return list.slice(start, start + historyPageSize.value)
+  return historyList.value
 })
 
 const explainColumns = computed(() => {
@@ -578,7 +598,6 @@ watch(() => props.ddlText, (n: string) => {
 
 watch(() => props.history?.length, () => {
   lastUpdateTime.value = new Date().toLocaleString('zh-CN')
-  historyPage.value = 1
 })
 
 function toggleResult(idx: number) {
@@ -1843,7 +1862,7 @@ function removeFavoriteItem(id: string) {
 .rt-history-pagination {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
   padding: 8px 12px;
   background: #f8f9fa;
@@ -1857,6 +1876,22 @@ function removeFavoriteItem(id: string) {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.rt-refresh-btn {
+  padding: 4px 8px;
+  font-size: 16px;
+  color: #909399;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.rt-refresh-btn:hover {
+  color: #1976d2;
+  background: #e3f2fd;
 }
 
 .rt-history-pagination-right {

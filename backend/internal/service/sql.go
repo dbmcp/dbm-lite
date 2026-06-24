@@ -689,6 +689,22 @@ func (s *SQLService) GetHistory(page, pageSize int, datasourceId, keyword, userI
 	return list, total, err
 }
 
+func (s *SQLService) CountHistory(datasourceId, keyword, userId string) (int64, error) {
+	var count int64
+	q := database.DB.Model(&model.SQLHistory{})
+	if userId != "" {
+		q = q.Where("user_id = ?", userId)
+	}
+	if datasourceId != "" {
+		q = q.Where("datasource_id = ?", datasourceId)
+	}
+	if keyword != "" {
+		q = q.Where("sql LIKE ?", "%"+keyword+"%")
+	}
+	err := q.Count(&count).Error
+	return count, err
+}
+
 func (s *SQLService) AnalyzeCapacity(ds *model.Datasource, dbName string) (interface{}, error) {
 	tables, err := s.GetTables(ds, dbName)
 	if err != nil {

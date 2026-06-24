@@ -149,12 +149,12 @@ export function getTableDDL(params: { datasourceId: string; database: string; ta
 }
 
 export function listHistory(params: {
-  datasourceId: string
+  datasourceId?: string
   page?: number
   pageSize?: number
   keyword?: string
 }): Promise<any[]> {
-  const { datasourceId, page = 1, pageSize = 100, keyword = '' } = params
+  const { datasourceId = '', page = 1, pageSize = 50, keyword = '' } = params
   return request({
     url: '/dataquery/sqlHistory/list',
     method: 'GET',
@@ -164,6 +164,21 @@ export function listHistory(params: {
     if (res && Array.isArray(res.list)) return res.list
     if (res && Array.isArray(res.data)) return res.data
     return []
+  })
+}
+
+export function countHistory(params?: {
+  datasourceId?: string
+  keyword?: string
+}): Promise<{ count: number }> {
+  const { datasourceId = '', keyword = '' } = params || {}
+  return request({
+    url: '/dataquery/sqlHistory/count',
+    method: 'GET',
+    params: { datasourceId, keyword }
+  }).then((res: any) => {
+    const data = res?.data || res
+    return { count: typeof data?.count === 'number' ? data.count : 0 }
   })
 }
 

@@ -244,6 +244,18 @@ func (h *SQLHandler) GetHistory(c *gin.Context) {
 	middleware.OK(c, gin.H{"list": list, "total": total, "current": page, "pageSize": pageSize})
 }
 
+func (h *SQLHandler) GetHistoryCount(c *gin.Context) {
+	datasourceId := c.Query("datasourceId")
+	keyword := c.Query("keyword")
+	userId := middleware.GetStr(c, "userId")
+	count, err := h.sqlSvc.CountHistory(datasourceId, keyword, userId)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, gin.H{"count": count})
+}
+
 // ===== 保存查询（SavedQuery）接口 =====
 
 type savedQueryReq struct {

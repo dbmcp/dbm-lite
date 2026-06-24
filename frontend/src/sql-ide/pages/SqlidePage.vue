@@ -98,7 +98,8 @@
             />
             <ResultTabs
               :results="(tab as any)._results || []"
-              :history="(tab as any).history || []"
+              :history="(tab as any)._history || []"
+              :history-total="(tab as any)._historyTotal || 0"
               :messages="(tab as any)._messages || []"
               :explain="(tab as any)._explain || []"
               :ddl-text="(tab as any)._ddlText || ''"
@@ -109,8 +110,9 @@
               @close-result="(i: number) => onTabResultClose(tab, i)"
               @close-all="onTabResultClear(tab)"
               @replay="(sql: string) => onTabReplay(tab, sql)"
-              @refresh="() => onTabRun(tab)"
+              @refresh="refreshHistory"
               @refresh-single="(rId: string, idx: number, sql: string) => onTabRefreshSingle(tab, rId, idx, sql)"
+              @load-history-page="(page: number, pageSize: number) => loadHistory(page, pageSize)"
               @apply-favorite="(sql: string) => onTabInsertSql(tab, sql)"
               @remove-favorite="(id: string) => removeFavorite(id)"
             />
@@ -146,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, provide, computed } from 'vue'
+import { ref, reactive, onMounted, provide, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DatasourceNode from '../components/DatasourceNode.vue'
 import QueryToolbar from '../components/QueryToolbar.vue'
@@ -410,6 +412,7 @@ function addNewTab() {
   const dsId = dsState.currentId || ((dsState.list || [])[0]?.datasourceId) || ''
   const tab = tabs.addQueryTab(dsId, '', '-- 在此编写 SQL\n\nSELECT 1;\n', '查询 ' + (tabs.tabs.filter((t: any) => t.kind === 'query').length + 1))
   ensureTabFields(tab)
+  refreshHistory()
 }
 
 function switchTab(id: string) {
@@ -719,6 +722,9 @@ function onTabRun(tab: any) {
     pushMessage(tab, 'ERROR', e?.message || String(e) || '执行失败')
   }).finally(() => {
     tab._executing = false
+    setTimeout(() => {
+      refreshHistory()
+    }, 300)
   })
 }
 
@@ -976,6 +982,7 @@ provide('sqlTreeCallbacks', {
           tabs.switchTab(newTab.id)
         }
       }
+      refreshHistory()
       return
     }
     
@@ -1045,30 +1052,64 @@ const cm = useSqlIdeContextMenu()
 // 全局历史数据（所有tab共享）
 const globalHistory = ref<any[]>([])
 
-async function loadHistory() {
+const historyPageSize = ref(50)
+const historyCurrentPage = ref(1)
+const historyTotal = ref(0)
+
+async function loadHistory(page = 1, pageSize = 50) {
   try {
-    const list = await api.listHistory({ page: 1, pageSize: 100 })
-    globalHistory.value = list.map((item: any) => ({
-      id: item.id || item.sqlHistoryId,
-      sql: item.sqlText || item.sql,
-      database: item.database || '',
+    const [countRes, listRes] = await Promise.all([
+      api.countHistory(),
+      api.listHistory({ page, pageSize })
+    ])
+    
+    historyTotal.value = countRes.count || (listRes.total || 0)
+    historyCurrentPage.value = page
+    historyPageSize.value = pageSize
+    
+    const listData = listRes.list || listRes.data || listRes.rows || (Array.isArray(listRes) ? listRes : [])
+    
+    const newHistory = listData.map((item: any) => ({
+      id: item.historyId || item.id || item.sqlHistoryId,
+      sql: item.sqlText || item.sql || '',
+      database: item.databaseName || item.database || '',
       datasourceId: item.datasourceId || '',
+      datasourceName: item.datasourceName || '',
       createdAt: item.createdAt || item.created_at || nowString(),
       durationMs: item.durationMs || 0,
-      affectedRows: item.affectedRows || 0
+      affectedRows: item.rowsAffected || item.affectedRows || 0,
+      status: item.status || '',
+      success: item.status === 'success' || item.success === true
     }))
     
-    // 将历史数据同步到所有已存在的query tab
+    globalHistory.value = newHistory
+    
     tabList.forEach((tab: any) => {
-      if (tab.kind === 'query' && (!tab._history || tab._history.length === 0)) {
+      if (tab.kind === 'query') {
         tab._history = [...globalHistory.value]
+        tab._historyTotal = historyTotal.value
+        tab._historyCurrentPage = historyCurrentPage.value
+        tab._historyPageSize = historyPageSize.value
       }
     })
   } catch (e) {
     console.error('加载历史记录失败:', e)
     globalHistory.value = []
+    historyTotal.value = 0
   }
 }
+
+function refreshHistory() {
+  loadHistory(1, historyPageSize.value)
+}
+
+function changeHistoryPage(page: number) {
+  loadHistory(page, historyPageSize.value)
+}
+
+watch(() => dsState.currentId, () => {
+  refreshHistory()
+})
 
 // === 生命周期 ===
 onMounted(async () => {

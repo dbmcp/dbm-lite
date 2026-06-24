@@ -116,27 +116,40 @@
                   </div>
                 </el-tab-pane>
 
-                <el-tab-pane :label="'历史 (' + ((tab as QueryTab).history || []).length + ')'" name="history">
+                <el-tab-pane :label="'历史 (' + ((tab as QueryTab).historyTotal || ((tab as QueryTab).history || []).length) + ')'" name="history">
                   <div class="history-toolbar">
                     <el-input v-model="historyKeyword" placeholder="过滤关键字" size="small" clearable style="width:260px" :prefix-icon="Search" @change="loadHistoryForTab(tab as QueryTab)" />
-                    <el-button size="small" @click="loadHistoryForTab(tab as QueryTab)"><span class="refresh-icon">⟳</span>刷新</el-button>
-                    <span class="result-info">展示最近 100 条</span>
                   </div>
                   <div v-if="!(tab as QueryTab).history || (tab as QueryTab).history.length === 0" class="result-empty"><el-icon :size="24"><Clock /></el-icon><span>暂无执行历史</span></div>
-                  <el-table v-else :data="(tab as QueryTab).history" size="small" border stripe height="calc(100% - 48px)" style="margin: 0">
-                    <el-table-column prop="time" label="时间" width="180" />
-                    <el-table-column prop="sql" label="SQL" show-overflow-tooltip min-width="240">
-                      <template #default="scope"><span style="font-family: Consolas, Monaco, monospace; font-size: 12px;">{{ scope.row.sql }}</span></template>
-                    </el-table-column>
-                    <el-table-column prop="database" label="数据库" width="130" />
-                    <el-table-column prop="durationMs" label="耗时(ms)" width="100" align="right"><template #default="scope">{{ scope.row.durationMs ?? '-' }}</template></el-table-column>
-                    <el-table-column label="状态" width="100">
-                      <template #default="scope"><el-tag v-if="scope.row.success" type="success" size="small">成功</el-tag><el-tag v-else type="danger" size="small">失败</el-tag></template>
-                    </el-table-column>
-                    <el-table-column label="操作" width="110">
-                      <template #default="scope"><el-button link type="primary" size="small" @click="replaySql(tab as QueryTab, scope.row)">重新执行</el-button></template>
-                    </el-table-column>
-                  </el-table>
+                  <div v-else class="history-table-wrap">
+                    <el-table :data="(tab as QueryTab).history" size="small" border stripe height="calc(100% - 80px)" style="margin: 0">
+                      <el-table-column prop="time" label="时间" width="180" />
+                      <el-table-column prop="sql" label="SQL" show-overflow-tooltip min-width="240">
+                        <template #default="scope"><span style="font-family: Consolas, Monaco, monospace; font-size: 12px;">{{ scope.row.sql }}</span></template>
+                      </el-table-column>
+                      <el-table-column prop="database" label="数据库" width="130" />
+                      <el-table-column prop="durationMs" label="耗时(ms)" width="100" align="right"><template #default="scope">{{ scope.row.durationMs ?? '-' }}</template></el-table-column>
+                      <el-table-column label="状态" width="100">
+                        <template #default="scope"><el-tag v-if="scope.row.success" type="success" size="small">成功</el-tag><el-tag v-else type="danger" size="small">失败</el-tag></template>
+                      </el-table-column>
+                      <el-table-column label="操作" width="110">
+                        <template #default="scope"><el-button link type="primary" size="small" @click="replaySql(tab as QueryTab, scope.row)">重新执行</el-button></template>
+                      </el-table-column>
+                    </el-table>
+                    <div class="history-footer">
+                      <span class="history-refresh-btn" @click="refreshHistory(tab as QueryTab)" title="刷新历史">⟳</span>
+                      <span class="history-info">共 {{ (tab as QueryTab).historyTotal || 0 }} 条记录 · 每页 {{ (tab as QueryTab).historyPageSize || 50 }} 条</span>
+                      <el-pagination 
+                        :current-page="(tab as QueryTab).historyCurrentPage || 1" 
+                        :page-size="(tab as QueryTab).historyPageSize || 50" 
+                        :total="(tab as QueryTab).historyTotal || 0"
+                        layout="prev, pager, next, jumper"
+                        @current-change="(page) => changeHistoryPage(tab as QueryTab, page)"
+                        background
+                        size="small"
+                      />
+                    </div>
+                  </div>
                 </el-tab-pane>
               </el-tabs>
             </div>
@@ -262,13 +275,13 @@ import { ref, reactive, computed, onMounted, onBeforeUnmount, provide, nextTick 
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, EditPen, Document, Grid, Folder, FolderOpened, Loading, VideoPlay, MagicStick, DocumentCopy, Download, CircleCheck, CircleClose, Plus, Delete, Clock, Edit, ChatDotRound, DataLine, Check, SkipBack, ChevronLeft, ChevronRight, SkipForward } from '@element-plus/icons-vue'
 import TreeItem, { type TreeNode } from './TreeItem.vue'
-import { executeSql, explainSql, listSqlHistory, getDatabases, getFullTree, queryTableData, getTableDDL } from '@/api/sql'
+import { executeSql, explainSql, listSqlHistory, countSqlHistory, getDatabases, getFullTree, queryTableData, getTableDDL } from '@/api/sql'
 import { listAllDatasources } from '@/api/datasource'
 
 interface Datasource { datasourceId: string; name: string; dbType: string }
 interface StatementResult { sql: string; isSelect: boolean; columns: string[]; rows: Record<string, any>[]; affectedRows: number; durationMs: number; success: boolean; message: string }
 interface QueryResultState { activeName: string; activeResultIdx: string; statementResults: StatementResult[]; explain: Record<string, any>[]; explainCols: string[]; messages: { time: string; level: string; text: string }[] }
-interface QueryTab { id: string; kind: 'query'; title: string; datasourceId: string; database: string; sql: string; result: QueryResultState; history: HistoryItem[] }
+interface QueryTab { id: string; kind: 'query'; title: string; datasourceId: string; database: string; sql: string; result: QueryResultState; history: HistoryItem[]; historyTotal?: number; historyCurrentPage?: number; historyPageSize?: number }
 interface TableTab { id: string; kind: 'table'; title: string; datasourceId: string; database: string; table: string; columns: string[]; rows: Record<string, any>[]; tableLoading: boolean; rowCount: number; currentPage: number; pageSize: number; editedRows: Set<number>; lastRefresh: string }
 interface HistoryItem { time: string; sql: string; database: string; success: boolean; durationMs?: number }
 type AnyTab = QueryTab | TableTab
@@ -768,12 +781,21 @@ function escapeName(name: string): string {
   return name
 }
 
-async function loadHistoryForTab(tab: QueryTab) {
+async function loadHistoryForTab(tab: QueryTab, page = 1, pageSize = 50) {
   const dsId = tab.datasourceId || currentDsId.value
-  if (!dsId) { tab.history = []; return }
+  if (!dsId) { tab.history = []; tab.historyTotal = 0; return }
   try {
-    const res: any = await listSqlHistory(dsId, 1, 100, historyKeyword.value)
-    const list: any[] = Array.isArray(res) ? res : (res?.list || (Array.isArray(res?.data) ? res.data : []))
+    const [countRes, listRes] = await Promise.all([
+      countSqlHistory(dsId, historyKeyword.value),
+      listSqlHistory(dsId, page, pageSize, historyKeyword.value)
+    ])
+    
+    console.log('countRes:', JSON.stringify(countRes))
+    
+    const total = typeof countRes?.count === 'number' ? countRes.count : 
+                  typeof countRes?.data?.count === 'number' ? countRes.data.count : null
+    
+    const list: any[] = Array.isArray(listRes) ? listRes : (listRes?.list || (Array.isArray(listRes?.data) ? listRes.data : []))
     tab.history = list.map((item: any) => ({
       time: item.time || item.createdAt || item.created_at || nowString(),
       sql: item.sql || item.sqlText || item.sql_text || '',
@@ -781,7 +803,19 @@ async function loadHistoryForTab(tab: QueryTab) {
       success: String(item.status || item.success || '').toLowerCase() !== 'failed' && item.success !== false,
       durationMs: typeof item.durationMs !== 'undefined' ? item.durationMs : item.duration
     }))
-  } catch (e: any) { tab.history = []; ElMessage.warning('历史记录加载失败：' + (e?.message || String(e))) }
+    
+    tab.historyTotal = total !== null ? total : tab.history.length
+    tab.historyCurrentPage = page
+    tab.historyPageSize = pageSize
+  } catch (e: any) { tab.history = []; tab.historyTotal = 0; ElMessage.warning('历史记录加载失败：' + (e?.message || String(e))) }
+}
+
+function refreshHistory(tab: QueryTab) {
+  loadHistoryForTab(tab, 1, tab.historyPageSize || 50)
+}
+
+function changeHistoryPage(tab: QueryTab, page: number) {
+  loadHistoryForTab(tab, page, tab.historyPageSize || 50)
 }
 
 function replaySql(tab: QueryTab, row: HistoryItem) {
@@ -1118,6 +1152,44 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
   padding: 4px 8px;
   border-bottom: 1px solid #ebeef5;
   background: #fafafa;
+}
+
+.history-table-wrap {
+  height: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.history-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-top: 1px solid #ebeef5;
+  background: #fafafa;
+}
+
+.history-refresh-btn {
+  padding: 4px 8px;
+  font-size: 16px;
+  color: #909399;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.history-refresh-btn:hover {
+  color: #1976d2;
+  background: #e3f2fd;
+}
+
+.history-info {
+  font-size: 12px;
+  color: #909399;
+}
+
+.history-footer .el-pagination {
+  margin-left: auto;
 }
 
 .table-toolbar {
