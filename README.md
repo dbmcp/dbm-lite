@@ -66,7 +66,7 @@ cd dbm-lite
 # 一键启动（自动清理端口、编译后端、启动前端）
 run.bat
 
-# 浏览器自动打开 http://localhost:5173
+# 浏览器自动打开 http://localhost:3000
 # 默认账号: admin / admin123
 ```
 
@@ -76,7 +76,7 @@ run.bat
 # 一键启动前后端
 docker-compose up -d
 
-# 浏览器打开 http://localhost:5173
+# 浏览器打开 http://localhost:3000
 ```
 
 ### 本地开发调试
@@ -93,7 +93,7 @@ go build -o dbm-lite.exe ./cmd/server
 cd ../frontend
 npm install
 npm run dev
-# 开发端口: 5173
+# 开发端口: 3000
 ```
 
 ## 🏗 技术栈
@@ -127,7 +127,7 @@ npm run dev
 
 ```
               ┌──────────────────────────┐
-              │   Web 浏览器 (localhost:5173) │
+              │   Web 浏览器 (localhost:3000) │
               └──────────┬───────────────┘
                          │ HTTP/HTTPS
               ┌──────────┴───────────────┐
