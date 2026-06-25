@@ -56,7 +56,12 @@ func Success(c *gin.Context, data interface{}) {
 
 // SuccessList 统一格式的列表响应（带分页信息）
 func SuccessList(c *gin.Context, data interface{}, total int64, current, pageSize int) {
-	c.JSON(http.StatusOK, UnifiedResponse{Success: true, Message: "成功", Data: data, Total: total, Current: current, PageSize: pageSize})
+	c.JSON(http.StatusOK, UnifiedResponse{Success: true, Message: "成功", Data: gin.H{
+		"list":     data,
+		"total":    total,
+		"current":  current,
+		"pageSize": pageSize,
+	}})
 }
 
 // Error 统一格式的失败响应

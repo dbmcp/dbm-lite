@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'priv/groups',
         name: 'priv-groups',
-        component: () => import('@/views/priv/ObjectPrivilege.vue'),
+        component: () => import('@/views/priv/InternalAuth.vue'),
         meta: { title: '对象权限', icon: 'Lock', domain: 'ops' }
       },
       {

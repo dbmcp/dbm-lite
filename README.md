@@ -9,6 +9,11 @@
 
 > Full-stack open source with Go + Vue, a plugin-based DBA efficiency tool
 
+> gitee address：<https://gitee.com/dbmcp/dbm-lite>
+
+> github address：<https://github.com/dbmcp/dbm-lite/tree/master>
+
+
 ---
 
 <p align="center">

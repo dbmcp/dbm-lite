@@ -1,6 +1,10 @@
 # DBM-Lite 轻量级全域数据库管控平台
 
-> Go + Vue 全栈开源，面向 研发、测试、运维、DBA 的插件化数据库效率工具
+> Go + Vue 全栈开源，面向 研发、测试、运维、DBA 的插件化数据库效率工具 
+
+> gitee地址：https://gitee.com/dbmcp/dbm-lite
+
+> github地址：https://github.com/dbmcp/dbm-lite/tree/master 
 
 ***
 

@@ -479,6 +479,49 @@ func main() {
 			authorized.GET("/priv/sensitive-columns", privH.ListSensitiveColumns)
 			authorized.POST("/priv/sensitive-columns", middleware.AdminRequired(), privH.CreateSensitiveColumn)
 			authorized.DELETE("/priv/sensitive-columns/:id", middleware.AdminRequired(), privH.DeleteSensitiveColumn)
+
+			// ====== 数据源实例内部权限管控 ======
+			internalAuthH := handler.NewInternalAuthHandler()
+			internalAuth := authorized.Group("/datasource-internal-auth")
+			{
+				usersAPI := internalAuth.Group("/users")
+				{
+					usersAPI.GET("", internalAuthH.ListUsers)
+					usersAPI.POST("", internalAuthH.CreateUser)
+					usersAPI.POST("/sync", internalAuthH.SyncUsers)
+					usersAPI.GET("/:id", internalAuthH.GetUser)
+					usersAPI.PUT("/:id", internalAuthH.UpdateUser)
+					usersAPI.DELETE("/:id", internalAuthH.DeleteUser)
+					usersAPI.POST("/:id/reset-password", internalAuthH.ResetPassword)
+					usersAPI.POST("/:id/status", internalAuthH.ToggleUserStatus)
+					usersAPI.GET("/:id/roles", internalAuthH.GetUserRoles)
+					usersAPI.POST("/:id/roles", internalAuthH.AssignRoles)
+					usersAPI.GET("/:id/permissions", internalAuthH.GetUserPermissions)
+					usersAPI.GET("/:id/grants", internalAuthH.GetUserGrants)
+				}
+				rolesAPI := internalAuth.Group("/roles")
+				{
+					rolesAPI.GET("", internalAuthH.ListRoles)
+					rolesAPI.GET("/:id", internalAuthH.GetRole)
+					rolesAPI.POST("", internalAuthH.CreateRole)
+					rolesAPI.PUT("/:id", internalAuthH.UpdateRole)
+					rolesAPI.DELETE("/:id", internalAuthH.DeleteRole)
+					rolesAPI.GET("/:id/user-count", internalAuthH.GetRoleUserCount)
+					rolesAPI.GET("/:id/permissions", internalAuthH.GetRolePermissions)
+					rolesAPI.GET("/:id/grants", internalAuthH.GetRoleGrants)
+				}
+				permAPI := internalAuth.Group("/permissions")
+				{
+					permAPI.GET("", internalAuthH.ListPermissionRules)
+					permAPI.POST("", internalAuthH.GrantPermission)
+					permAPI.POST("/batch", internalAuthH.BatchGrantPermission)
+					permAPI.DELETE("/:id", internalAuthH.RevokePermission)
+					permAPI.POST("/batch-revoke", internalAuthH.BatchRevokePermission)
+					permAPI.GET("/user", internalAuthH.GetUserPermissions)
+					permAPI.POST("/check-sql", internalAuthH.CheckSQLPermission)
+				}
+				internalAuth.GET("/audit", internalAuthH.ListAuditLogs)
+			}
 		}
 	}
 

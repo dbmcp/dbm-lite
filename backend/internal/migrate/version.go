@@ -2,7 +2,7 @@ package migrate
 
 import "time"
 
-const CurrentDBVersion = "v1.0.1"
+const CurrentDBVersion = "v1.0.2"
 
 type MigrateVersion struct {
 	ID            uint      `gorm:"primaryKey"`

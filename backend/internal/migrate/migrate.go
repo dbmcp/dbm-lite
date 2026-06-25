@@ -97,6 +97,11 @@ func allModels() []interface{} {
 		&model.PermissionPoint{},
 		&model.UserRoleBind{},
 		&model.SQLFavorite{},
+		&model.DatasourceInternalUser{},
+		&model.DatasourceInternalRole{},
+		&model.DatasourceUserRoleRel{},
+		&model.DatasourcePermissionRule{},
+		&model.DatasourceAuthAudit{},
 	}
 }
 
