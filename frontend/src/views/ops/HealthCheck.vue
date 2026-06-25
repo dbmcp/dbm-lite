@@ -1,4 +1,4 @@
-﻿﻿﻿<!--
+﻿﻿<!--
 @Project: DBM-Lite 轻量级全域数据库管控平台
 @Version: v0.1.0
 @Author: DB老王
@@ -134,7 +134,7 @@ const instanceColumns = [
   { key: 'diskUsage', label: '磁盘使用率' },
   { key: 'status', label: '状态' }
 ]
-let instanceColVisible = reactive<Record<string, boolean>>({
+const instanceColVisible = reactive<Record<string, boolean>>({
   name: true, qps: true, connections: true, bufferHit: true, replicationLag: true,
   slowQueries: true, diskUsage: true, status: true
 })
@@ -151,7 +151,7 @@ const inspectColumns = [
   { key: 'level', label: '等级' },
   { key: 'detail', label: '详情' }
 ]
-let inspectColVisible = reactive<Record<string, boolean>>({
+const inspectColVisible = reactive<Record<string, boolean>>({
   time: true, env: true, instance: true, item: true, level: true, detail: true
 })
 const inspectResult = ref<any[]>([])

@@ -392,6 +392,19 @@
           <div style="font-size: 11px; color: #909399; margin-top: 8px;">点击工具栏「收藏」按钮可收藏当前 SQL</div>
         </div>
         <template v-else>
+          <div class="rt-fav-header">
+            <div class="rt-fav-search">
+              <input 
+                type="text" 
+                v-model="favoriteSearch" 
+                placeholder="搜索收藏标题..." 
+                class="rt-fav-search-input"
+                @keyup.enter="applyFavoriteSearch"
+              />
+              <button class="rt-fav-search-btn" @click="applyFavoriteSearch">🔍</button>
+            </div>
+            <button class="rt-refresh-btn" @click="emit('refresh')" title="刷新收藏">⟳</button>
+          </div>
           <div class="rt-table-wrap">
             <table class="rt-data-table">
               <thead>
@@ -400,22 +413,27 @@
                   <th style="width: 150px;">标题</th>
                   <th style="width: 200px;">描述</th>
                   <th>SQL 内容</th>
-                  <th style="width: 160px;">操作</th>
+                  <th style="width: 180px;">操作</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(f, idx) in favoriteList" :key="'fav-' + f.id" :class="{ odd: idx % 2 === 0 }">
+                <tr v-for="(f, idx) in filteredFavorites" :key="'fav-' + f.id" :class="{ odd: idx % 2 === 0 }">
                   <td>{{ f.createdAt || '-' }}</td>
                   <td :title="f.title">{{ f.title || '-' }}</td>
                   <td :title="f.description">{{ (f.description || '-').substring(0, 30) }}{{ (f.description || '').length > 30 ? '...' : '' }}</td>
                   <td class="rt-fav-sql" :title="f.sql">{{ (f.sql || '').substring(0, 50) }}{{ (f.sql || '').length > 50 ? '...' : '' }}</td>
                   <td>
                     <button class="rt-fav-action" @click="applyFavorite(f)">插入编辑器</button>
+                    <button class="rt-fav-action rt-fav-action-run" @click="runFavorite(f)">运行</button>
                     <button class="rt-fav-action rt-fav-action-danger" @click="removeFavoriteItem(f.id)">取消收藏</button>
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+          <div v-if="filteredFavorites.length > 0 && filteredFavorites.length !== favoriteList.length" class="rt-fav-footer">
+            <span>显示 {{ filteredFavorites.length }} 条，共 {{ favoriteList.length }} 条</span>
+            <button v-if="favoriteSearch" class="rt-fav-clear-search" @click="clearFavoriteSearch">清除搜索</button>
           </div>
         </template>
       </div>
@@ -497,6 +515,10 @@ const abortSubmit = reactive<Record<number, boolean>>({})
 // 导出菜单状态
 const exportMenuOpen = ref<string | null>(null)
 
+// 收藏搜索状态
+const favoriteSearch = ref('')
+const favoriteSearchKeyword = ref('')
+
 const resultCount = computed(() => props.results.filter((r: any) => r.success !== false).length)
 const historyList = computed(() => {
   const list = props.history || []
@@ -519,6 +541,18 @@ const favoriteList = computed(() => {
     const timeB = b.createdAt || ''
     return timeB.localeCompare(timeA)
   })
+})
+
+const filteredFavorites = computed(() => {
+  if (!favoriteSearchKeyword.value) {
+    return favoriteList.value
+  }
+  const keyword = favoriteSearchKeyword.value.toLowerCase()
+  return favoriteList.value.filter(f => 
+    (f.title || '').toLowerCase().includes(keyword) ||
+    (f.description || '').toLowerCase().includes(keyword) ||
+    (f.sql || '').toLowerCase().includes(keyword)
+  )
 })
 
 const hasDataResults = computed(() => {
@@ -1286,8 +1320,23 @@ function applyFavorite(f: FavoriteItem) {
   }
 }
 
+function runFavorite(f: FavoriteItem) {
+  if (f && f.sql) {
+    emit('replay', f.sql)
+  }
+}
+
 function removeFavoriteItem(id: string) {
   emit('remove-favorite', id)
+}
+
+function applyFavoriteSearch() {
+  favoriteSearchKeyword.value = favoriteSearch.value.trim()
+}
+
+function clearFavoriteSearch() {
+  favoriteSearch.value = ''
+  favoriteSearchKeyword.value = ''
 }
 </script>
 
@@ -1995,6 +2044,82 @@ function removeFavoriteItem(id: string) {
 
 .rt-fav-action-danger:hover {
   background: #b71c1c;
+}
+
+.rt-fav-action-run {
+  background: #2e7d32;
+}
+
+.rt-fav-action-run:hover {
+  background: #1b5e20;
+}
+
+.rt-fav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.rt-fav-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rt-fav-search-input {
+  padding: 4px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 3px;
+  font-size: 12px;
+  width: 200px;
+  outline: none;
+}
+
+.rt-fav-search-input:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+.rt-fav-search-btn {
+  padding: 4px 8px;
+  background: #1976d2;
+  color: #ffffff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.rt-fav-search-btn:hover {
+  background: #1565c0;
+}
+
+.rt-fav-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.rt-fav-clear-search {
+  padding: 2px 8px;
+  background: transparent;
+  color: #1976d2;
+  border: 1px solid #1976d2;
+  border-radius: 2px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.rt-fav-clear-search:hover {
+  background: #e3f2fd;
 }
 
 .rt-shell-wrap {

@@ -25,7 +25,7 @@
           :key="col.key"
           class="col-toggle-item"
         >
-          <el-checkbox v-model="localVisible[col.key]" @change="onChange">
+          <el-checkbox v-model="props.modelValue[col.key]" @change="onChange">
             {{ col.label }}
           </el-checkbox>
         </el-dropdown-item>
@@ -35,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { Setting as SettingIcon } from '@element-plus/icons-vue'
 
 const props = defineProps<{
@@ -47,40 +47,39 @@ const emit = defineEmits<{
   (e: 'update:modelValue', v: Record<string, boolean>): void
 }>()
 
-const localVisible = reactive<Record<string, boolean>>({})
-
 for (const c of props.columns) {
-  localVisible[c.key] = props.modelValue?.[c.key] !== false
+  if (props.modelValue[c.key] === undefined) {
+    props.modelValue[c.key] = true
+  }
 }
 
 watch(
-  () => props.modelValue,
-  (val) => {
-    for (const c of props.columns) {
-      localVisible[c.key] = val?.[c.key] !== false
+  () => props.columns,
+  (cols) => {
+    for (const c of cols) {
+      if (props.modelValue[c.key] === undefined) {
+        props.modelValue[c.key] = true
+      }
     }
   },
-  { deep: true }
+  { immediate: true }
 )
 
 const isAllSelected = computed(() => {
-  return props.columns.every((c) => localVisible[c.key] !== false)
+  return props.columns.every((c) => props.modelValue[c.key] !== false)
 })
 const isIndeterminate = computed(() => {
-  const shown = props.columns.filter((c) => localVisible[c.key] !== false).length
+  const shown = props.columns.filter((c) => props.modelValue[c.key] !== false).length
   return shown > 0 && shown < props.columns.length
 })
 
 function toggleAll(val: boolean) {
   for (const c of props.columns) {
-    localVisible[c.key] = val
+    props.modelValue[c.key] = val
   }
-  emit('update:modelValue', { ...localVisible })
 }
 
-function onChange() {
-  emit('update:modelValue', { ...localVisible })
-}
+function onChange() {}
 
 function onVisibleChange(_v: boolean) {}
 </script>

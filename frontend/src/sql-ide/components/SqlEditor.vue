@@ -80,6 +80,7 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLElement | null>(null)
 const editorRef = ref<HTMLElement | null>(null)
 let cm: CodeMirror.Editor | null = null
+const cleanupListeners: (() => void)[] = []
 
 const suggestions = ref<Suggestion[]>([])
 const selectedIndex = ref(0)
@@ -305,6 +306,7 @@ onMounted(() => {
       })
 
       if (props.tabId) {
+        const eventName = 'sqlide:update-editor-' + props.tabId
         const externalListener = (e: Event) => {
           const ce = e as CustomEvent
           if (ce.detail && cm) {
@@ -312,9 +314,9 @@ onMounted(() => {
             emit('input', ce.detail)
           }
         }
-        window.addEventListener('sqlide:update-editor-' + props.tabId, externalListener)
-        onBeforeUnmount(() => {
-          window.removeEventListener('sqlide:update-editor-' + props.tabId, externalListener)
+        window.addEventListener(eventName, externalListener)
+        cleanupListeners.push(() => {
+          window.removeEventListener(eventName, externalListener)
         })
       }
     }
@@ -322,8 +324,13 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cleanupListeners.forEach(fn => fn())
   if (cm) {
-    cm.toTextArea()
+    try {
+      if (typeof cm.toTextArea === 'function') {
+        cm.toTextArea()
+      }
+    } catch (e) {}
     cm = null
   }
 })

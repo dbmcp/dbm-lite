@@ -634,31 +634,25 @@ function onTabSave(tab: any) {
 }
 
 function onTabFavorite(tab: any) {
-  // 获取 textarea 元素
-  const textarea = document.getElementById('sql-editor-' + tab.id) as HTMLTextAreaElement
+  let sqlToFavorite = ''
   
-  if (!textarea) {
-    ElMessage.warning('未找到编辑器')
-    return
+  const editor = editorRefs[tab.id]
+  if (editor && typeof editor.getSelectedSQL === 'function') {
+    sqlToFavorite = editor.getSelectedSQL()
   }
   
-  // 获取选中的 SQL
-  const selectedSql = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
-  
-  if (!selectedSql || !selectedSql.trim()) {
+  if (!sqlToFavorite) {
     ElMessage.warning('请先选中要收藏的 SQL')
     return
   }
   
-  // 保存选中状态
-  const savedStart = textarea.selectionStart
-  const savedEnd = textarea.selectionEnd
+  const savedTitle = tab.title || ''
   
   ElMessageBox.confirm(
     `<div>
       <div style="margin-bottom: 8px;">请填写收藏信息</div>
-      <input type="text" id="fav-title" placeholder="标题" style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #d0d0d0; border-radius: 3px;" value="${tab.title || ''}">
-      <textarea id="fav-desc" placeholder="描述" style="width: 100%; padding: 6px; height: 60px; border: 1px solid #d0d0d0; border-radius: 3px;"></textarea>
+      <input type="text" id="fav-title" placeholder="标题" style="width: 100%; padding: 6px; margin-bottom: 8px; border: 1px solid #d0d0d0; border-radius: 3px;" value="${savedTitle}">
+      <textarea id="fav-desc" placeholder="描述（可选）" style="width: 100%; padding: 6px; height: 60px; border: 1px solid #d0d0d0; border-radius: 3px;"></textarea>
     </div>`,
     '添加收藏',
     {
@@ -673,14 +667,8 @@ function onTabFavorite(tab: any) {
       ElMessage.warning('请输入标题')
       return
     }
-    addFavorite(title.trim(), desc, selectedSql)
-  }).catch(() => undefined).finally(() => {
-    // 外部操作结束，恢复选中状态
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(savedStart, savedEnd)
-    }, 100)
-  })
+    addFavorite(title.trim(), desc, sqlToFavorite)
+  }).catch(() => undefined)
 }
 
 function onTabBeautify(tab: any) {

@@ -139,7 +139,7 @@ const platColumns = [
   { key: 'status', label: '状态' },
   { key: 'createdAt', label: '时间' }
 ]
-let platColVisible = reactive<Record<string, boolean>>({
+const platColVisible = reactive<Record<string, boolean>>({
   username: true, action: true, target: true, targetId: true,
   detail: true, ipAddress: true, status: true, createdAt: true
 })
@@ -154,7 +154,7 @@ const dbColumns = [
   { key: 'status', label: '状态' },
   { key: 'createdAt', label: '时间' }
 ]
-let dbColVisible = reactive<Record<string, boolean>>({
+const dbColVisible = reactive<Record<string, boolean>>({
   username: true, action: true, target: true, targetId: true,
   detail: true, ipAddress: true, status: true, createdAt: true
 })
