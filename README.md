@@ -1,8 +1,15 @@
-# DBM-Lite 轻量级全域数据库管控平台
+<!--
+@Project: DBM-Lite Lightweight Full-Scope Database Control Platform
+@Version: v0.1.0
+@Author: DB老王
+@License: Apache-2.0 OR MulanPSL-2.0
+-->
 
-> Go + Vue 全栈开源，面向 研发、测试、运维、DBA 的插件化数据库效率工具
+# DBM-Lite Lightweight Full-Scope Database Control Platform
 
-***
+> Full-stack open source with Go + Vue, a plugin-based DBA efficiency tool
+
+---
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-v0.1.0-409EFF?style=for-the-badge" alt="Version">
@@ -13,25 +20,27 @@
   <img src="https://img.shields.io/badge/SQLite-%E2%9C%85-003B57?style=for-the-badge&logo=sqlite" alt="SQLite">
 </p>
 
-## 📸 产品预览
+## 📸 Product Preview
 
-> 以下为产品界面预览占位，实际使用请运行 run.bat 启动。
+> Below is a placeholder of the product interface. Run `run.bat` to launch the actual application.
+
+![首页概览](dbm-lite.png)
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│  DBM-Lite  ─ DB操作管控域 ─────────────────────────────────     │
+│  DBM-Lite  ─ DB Operation Domain ──────────────────────────     │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  SQL IDE  |  数据库权限管理  |  数据源管理             │  │
+│  │  SQL Sqlide  |  DB Permissions  |  Data Sources        │  │
 │  ├──────────────────────────────────────────────────────────┤  │
 │  │  ┌──────────────┐   ┌────────────────────────────────┐  │  │
-│  │  │ 数据源Tab栏  │   │  SELECT * FROM users LIMIT 100  │  │  │
-│  │  │ [MySQL] [TiDB│   │                                │  │  │
+│  │  │ Datasource Tabs │   │  SELECT * FROM users LIMIT 100 │  │
+│  │  │ [MySQL][TiDB]│   │                                │  │  │
 │  │  │  [SQLite]    │   │  ┌──────────────────────────┐   │  │  │
 │  │  └──────────────┘   │  │  id | name | email      │   │  │  │
-│  │  ┌──对象树──┐        │  │  ──────────────────────  │   │  │  │
-│  │  │ mydb     │        │  │  1  | 张三 | z@db.com   │   │  │  │
-│  │  │  ├users  │        │  │  2  | 李四 | l@db.com   │   │  │  │
-│  │  │  └orders │        │  └──────────────────────────┘   │  │  │
+│  │  ┌──Object Tree┐     │  │  ──────────────────────  │   │  │  │
+│  │  │ mydb        │     │  │  1  | John | j@db.com   │   │  │  │
+│  │  │  ├users     │     │  │  2  | Jane | je@db.com  │   │  │  │
+│  │  │  └orders    │     │  └──────────────────────────┘   │  │  │
 │  │  └──────────┘        │                                │  │  │
 │  │                       └────────────────────────────────┘  │  │
 │  └──────────────────────────────────────────────────────────┘  │
@@ -39,178 +48,178 @@
 └───────────────────────────────────────────────────────────────┘
 ```
 
-## 🔑 默认账号
+## 🔑 Default Account
 
-- **用户名：** `admin`
-- **密码：** `admin123`
+- **Username:** `admin`
+- **Password:** `admin123`
 
-## ✨ 核心特性
+## ✨ Core Features
 
-| 已实现 (v0.1.0)                    | 规划中                    |
-| ------------------------------- | ---------------------- |
-| ✅ 多数据源管理（MySQL / TiDB / SQLite） | 🔲 备插件化运维生态 |
-| ✅ 多标签 SQL 工作台（对象树 + 结果集 ） | 🔲 数据库权限管理           |
-| ✅ 操作审计日志                        | 🔲 DB 生命周期管理            |
-| ✅ 基础账号权限体系                      | 🔲 多种类型数据库产品扩展支持   |
-| ✅ 双域切换（DB 操作管控域 / DB 基础运维域）     | 🔲         |
+| Implemented (v0.1.0) | Planned |
+| --- | --- |
+| ✅ Multi datasource management (MySQL / TiDB / SQLite) | 🔲 Backup & recovery / Health check / Slow log analysis |
+| ✅ Multi-tab SQL sqlide (Object tree + Result set + High-risk SQL validation) | 🔲 Plugin-based ops script ecosystem |
+| ✅ Audit log | 🔲 Cluster lifecycle management |
+| ✅ Basic account & permission system | 🔲 Distributed database extension |
+| ✅ Dual-domain switching (DB Operation Domain / DB Maintenance Domain) | 🔲 DB permissions (production-grade) |
+| ✅ Page memory + Layout switching | 🔲 DB lifecycle management (production-grade) |
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### Windows 一键启动（推荐）
+### Windows One-Click Start (Recommended)
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/DB老王/dbm-lite
 cd dbm-lite
 
-# 一键启动（自动清理端口、编译后端、启动前端）
+# One-click start (auto-clean ports, build backend, launch frontend)
 run.bat
 
-# 浏览器自动打开 http://localhost:3000
-# 默认账号: admin / admin123
+# Browser auto-opens http://localhost:5173
+# Default account: admin / admin123
 ```
 
-### Docker 部署
+### Docker Deployment
 
 ```bash
-# 一键启动前后端
+# Launch frontend + backend with one command
 docker-compose up -d
 
-# 浏览器打开 http://localhost:3000
+# Open http://localhost:5173 in your browser
 ```
 
-### 本地开发调试
+### Local Development
 
 ```bash
-# === 后端 ===
+# === Backend ===
 cd backend
 go mod tidy
 go build -o dbm-lite.exe ./cmd/server
-./dbm-lite.exe     # Windows 下直接运行
-# 服务端口: 8080
+./dbm-lite.exe         # or run directly on Windows
+# Server port: 8080
 
-# === 前端（另一个终端）===
+# === Frontend (another terminal) ===
 cd ../frontend
 npm install
 npm run dev
-# 开发端口: 3000
+# Dev server port: 5173
 ```
 
-## 🏗 技术栈
+## 🏗 Tech Stack
 
-### 后端
+### Backend
 
-- **Go 1.22+**：高性能后端服务
-- **Gin**：轻量级 Web 框架
-- **GORM**：ORM 框架，驱动数据库操作
-- **SQLite**：嵌入式数据库（默认存储），支持切换到 MySQL / TiDB
-- **JWT**：无状态鉴权认证
-- **AES**：敏感信息（数据库密码）加密存储
-- **gin-contrib/cors**：生产级跨域中间件
+- **Go 1.22+**：High-performance backend service
+- **Gin**：Lightweight web framework
+- **GORM**：ORM framework for database operations
+- **SQLite**：Embedded database (default storage), switchable to MySQL / TiDB
+- **JWT**：Stateless authentication
+- **AES**：Sensitive data (database password) encryption
+- **gin-contrib/cors**：Production-grade CORS middleware
 
-### 前端
+### Frontend
 
-- **Vue 3 Composition API**：响应式前端框架
-- **Element Plus**：UI 组件库（双域主题色）
-- **Vue Router**：页面路由管理
-- **Pinia**：前端状态管理
-- **Monaco Editor**：SQL 代码编辑器（语法高亮、自动补全）
-- **Vite**：极速构建工具
+- **Vue 3 Composition API**：Reactive frontend framework
+- **Element Plus**：UI component library (dual-domain theme)
+- **Vue Router**：Page routing management
+- **Pinia**：Frontend state management
+- **Monaco Editor**：SQL code editor (syntax highlighting, auto-complete)
+- **Vite**：Blazing fast build tool
 
-### 部署与运行
+### Deployment
 
-- **Docker**：前后端分离容器化部署
-- **Docker Compose**：容器编排，一键启动
-- **Windows 批处理脚本**：一键启动（`run.bat`）
+- **Docker**：Frontend-backend separation containerization
+- **Docker Compose**：Container orchestration, one-click launch
+- **Windows batch script**：One-click start (`run.bat`)
 
-## 🏛 整体架构
+## 🏛 Architecture
 
 ```
-              ┌──────────────────────────┐
-              │   Web 浏览器 (localhost:3000) │
-              └──────────┬───────────────┘
+              ┌───────────────────────────────┐
+              │ Web Browser (localhost:5173) │
+              └──────────┬────────────────────┘
                          │ HTTP/HTTPS
-              ┌──────────┴───────────────┐
-              │  前端 (Vue3 + Element Plus) │
-              │  · SQL工作台 · 数据源管理    │
-              │  · DB运维域 · 审计日志      │
-              └──────────┬───────────────┘
+              ┌──────────┴────────────────────┐
+              │ Frontend (Vue3 + Element Plus)│
+              │ · SQL Sqlide · Datasources │
+              │ · Ops Domain · Audit Log      │
+              └──────────┬────────────────────┘
                          │ REST API
-              ┌──────────┴───────────────┐
-              │   后端 (Gin + JWT)        │
-              │  · /api/auth · /api/sql   │
-              │  · /api/datasources ...   │
-              └──────────┬───────────────┘
+              ┌──────────┴────────────────────┐
+              │  Backend (Gin + JWT)          │
+              │ · /api/auth · /api/sql        │
+              │ · /api/datasources ...        │
+              └──────────┬────────────────────┘
                          │
-              ┌──────────┴───────────────┐
-              │   嵌入式 SQLite 存储       │
-              │  (users · datasources · audit)│
-              └──────────────────────────┘
+              ┌──────────┴────────────────────┐
+              │   Embedded SQLite Storage     │
+              │ (users · datasources · audit) │
+              └───────────────────────────────┘
                          │
                ┌────────┼─────────┐
                ▼        ▼         ▼
-          MySQL       TiDB      SQLite     ← 目标数据源
+          MySQL       TiDB      SQLite    ← Target datasources
 ```
 
-## 📂 项目结构
+## 📂 Project Structure
 
 ```
 dbm-lite/
-├── backend/                    # 后端服务
-│   ├── cmd/server/             # 入口
-│   ├── config/                 # 配置
+├── backend/                    # Backend service
+│   ├── cmd/server/             # Entry point
+│   ├── config/                 # Configuration
 │   ├── internal/
-│   │   ├── database/           # 数据库初始化
-│   │   ├── dbtype/             # 数据库类型枚举
-│   │   ├── handler/            # HTTP 路由处理器
-│   │   ├── middleware/         # 中间件（鉴权、CORS）
-│   │   ├── model/              # 数据模型
-│   │   └── service/            # 业务服务
+│   │   ├── database/           # Database initialization
+│   │   ├── dbtype/             # Database type enum
+│   │   ├── handler/            # HTTP route handlers
+│   │   ├── middleware/         # Middleware (auth, CORS)
+│   │   ├── model/              # Data models
+│   │   └── service/            # Business services
 │   ├── pkg/
-│   │   ├── crypto/             # AES/密码工具
-│   │   ├── dbpool/             # 连接池
-│   │   ├── sqllint/            # SQL 高危校验
-│   │   └── plugin/             # 插件协议框架（预留）
-│   ├── plugins/                # 插件目录（预留）
+│   │   ├── crypto/             # AES / password utilities
+│   │   ├── dbpool/             # Connection pool
+│   │   ├── sqllint/            # High-risk SQL lint
+│   │   └── plugin/             # Plugin protocol framework (reserved)
+│   ├── plugins/                # Plugin directory (reserved)
 │   ├── go.mod
 │   └── .env.example
-├── frontend/                   # 前端应用
+├── frontend/                   # Frontend application
 │   ├── src/
-│   │   ├── api/                # API 请求封装
-│   │   ├── router/             # 路由与权限
-│   │   ├── stores/             # Pinia 状态管理
-│   │   ├── styles/             # 全局样式
-│   │   └── views/              # 页面组件
+│   │   ├── api/                # API request wrappers
+│   │   ├── router/             # Routes & permissions
+│   │   ├── stores/             # Pinia state management
+│   │   ├── styles/             # Global styles
+│   │   └── views/              # Page components
 │   ├── package.json
 │   └── vite.config.ts
-├── docs/                       # 设计文档
-│   ├── 01-竞品架构与功能拆解.md
-│   └── 02-dbm-lite-全生命周期设计文档.md
+├── docs/                       # Design documents
 ├── docker-compose.yml
-├── run.bat                    # Windows 一键启动
+├── run.bat                    # Windows one-click start
 ├── LICENSE                    # Apache-2.0
-├── LICENSE-MulanPSL2          # 木兰宽松许可证 v2
+├── LICENSE-MulanPSL2          # Mulan PSL v2
 └── README.md
 ```
 
-## 👤 作者与交流
+## 👤 Author
 
-- **作者：** DB老王
-- **交流微信号：** `db00db00db00`（仅用于技术交流）
+**DB老王**
 
-## 🗺 版本路线图
+- **WeChat ID:** `db00db00db00` (for technical communication only)
 
-| 版本         | 状态     | 核心能力                        |
-| ---------- | ------ | --------------------------- |
-| **v0.1.0** | ✅ 已发布  | 核心能力：数据源管理、SQL IDE、双域切换、审计日志 |
-| **v0.2.0** | 🔲 规划中 | 运维插件体系                      |
-| **v0.3.0** | 🔲 规划中 | <br />                      |
+## 🗺 Roadmap
 
-## 📄 开源协议
+| Version | Status | Capabilities |
+| --- | --- | --- |
+| **v0.1.0** | ✅ Released | Core: datasource management, SQL sqlide, dual-domain, audit log |
+| **v0.2.0** | 🔲 Planned | Ops plugin ecosystem |
+| **v0.3.0** | 🔲 Planned |  |
 
-> 本软件采用 **Apache License 2.0 OR MulanPSL-2.0** 双许可模式，使用者可自由选择其中一种协议使用。
+## 📄 License
 
-- [Apache License 2.0](LICENSE)
-- [木兰宽松许可证第2版](LICENSE-MulanPSL2)
+> This software is licensed under **Apache License 2.0 OR MulanPSL-2.0** dual license — users may freely choose either one.
 
-© 2026 DB老王
+- Apache License 2.0 — see [LICENSE](LICENSE)
+- 木兰宽松许可证第2版 — see [LICENSE-MulanPSL2](LICENSE-MulanPSL2)
+
+© 2026 DBlaowang
