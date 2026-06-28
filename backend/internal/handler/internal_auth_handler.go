@@ -419,13 +419,14 @@ func (h *InternalAuthHandler) ListPermissionRules(c *gin.Context) {
 	principalID := c.Query("principalId")
 	privilegeType := c.Query("privilegeType")
 	objectLevel := c.Query("objectLevel")
+	privilegeCategory := c.Query("privilegeCategory")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if p, err := strconv.Atoi(c.Query("current")); err == nil && p > 0 {
 		page = p
 	}
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 
-	list, total, err := h.authSvc.ListPermissionRules(datasourceID, principalType, principalID, privilegeType, objectLevel, page, pageSize)
+	list, total, err := h.authSvc.ListPermissionRules(datasourceID, principalType, principalID, privilegeType, objectLevel, privilegeCategory, page, pageSize)
 	if err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
 		return
@@ -450,6 +451,23 @@ func (h *InternalAuthHandler) GetUserPermissions(c *gin.Context) {
 	middleware.OK(c, rules)
 }
 
+func (h *InternalAuthHandler) GetUserPermissionDetail(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	userID := c.Query("userId")
+
+	if datasourceID == "" || userID == "" {
+		middleware.Fail(c, http.StatusBadRequest, 400, "数据源ID和用户ID必填")
+		return
+	}
+
+	result, err := h.authSvc.GetUserPermissionDetail(datasourceID, userID)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, result)
+}
+
 func (h *InternalAuthHandler) GetRolePermissions(c *gin.Context) {
 	roleID := c.Param("id")
 
@@ -459,7 +477,7 @@ func (h *InternalAuthHandler) GetRolePermissions(c *gin.Context) {
 		return
 	}
 
-	rules, _, err := h.authSvc.ListPermissionRules(role.DatasourceID, datasource_auth.PrincipalTypeRole, roleID, "", "", 1, 1000)
+	rules, _, err := h.authSvc.ListPermissionRules(role.DatasourceID, datasource_auth.PrincipalTypeRole, roleID, "", "", "", 1, 1000)
 	if err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
 		return
@@ -501,6 +519,23 @@ func (h *InternalAuthHandler) GetRoleGrants(c *gin.Context) {
 	middleware.OK(c, gin.H{"grants": grants})
 }
 
+func (h *InternalAuthHandler) GetUserEffectiveGrants(c *gin.Context) {
+	userID := c.Param("id")
+
+	user, err := h.authSvc.GetInternalUser(userID)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+
+	grants, err := h.authSvc.GetUserEffectiveGrants(user.DatasourceID, user.Username, user.Host)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, gin.H{"grants": grants})
+}
+
 func (h *InternalAuthHandler) CheckSQLPermission(c *gin.Context) {
 	var req struct {
 		DatasourceID string `json:"datasourceId"`
@@ -524,16 +559,211 @@ func (h *InternalAuthHandler) ListAuditLogs(c *gin.Context) {
 	datasourceID := c.Query("datasourceId")
 	operator := c.Query("operator")
 	operType := c.Query("operType")
+	result := c.Query("result")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if p, err := strconv.Atoi(c.Query("current")); err == nil && p > 0 {
 		page = p
 	}
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 
-	list, total, err := h.authSvc.ListAuditLogs(datasourceID, operator, operType, page, pageSize)
+	list, total, err := h.authSvc.ListAuditLogs(datasourceID, operator, operType, result, page, pageSize)
 	if err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
 		return
 	}
 	middleware.SuccessList(c, list, total, page, pageSize)
+}
+
+func (h *InternalAuthHandler) GetSystemPrivileges(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	privs, err := h.authSvc.GetSystemPrivilegesList(datasourceID)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, privs)
+}
+
+func (h *InternalAuthHandler) GrantSystemPrivileges(c *gin.Context) {
+	var req struct {
+		DatasourceID      string   `json:"datasourceId"`
+		PrincipalType     string   `json:"principalType"`
+		PrincipalID       string   `json:"principalId"`
+		SystemPrivileges  []string `json:"systemPrivileges"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusBadRequest, 400, "参数错误: "+err.Error())
+		return
+	}
+
+	operatorID := middleware.GetStr(c, "userId")
+	operatorName := middleware.GetStr(c, "username")
+
+	if err := h.authSvc.GrantSystemPrivileges(struct {
+		DatasourceID      string
+		PrincipalType     string
+		PrincipalID       string
+		SystemPrivileges  []string
+	}{req.DatasourceID, req.PrincipalType, req.PrincipalID, req.SystemPrivileges}, operatorID, operatorName); err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *InternalAuthHandler) RevokeSystemPrivileges(c *gin.Context) {
+	id := c.Param("id")
+	operatorID := middleware.GetStr(c, "userId")
+	operatorName := middleware.GetStr(c, "username")
+
+	if err := h.authSvc.RevokeSystemPrivileges(id, operatorID, operatorName); err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *InternalAuthHandler) GetUserSystemPrivileges(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	userID := c.Param("id")
+	privs, err := h.authSvc.GetUserSystemPrivileges(datasourceID, userID)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, privs)
+}
+
+func (h *InternalAuthHandler) GrantObjectPermission(c *gin.Context) {
+	var req struct {
+		DatasourceID  string   `json:"datasourceId"`
+		PrincipalType string   `json:"principalType"`
+		PrincipalID   string   `json:"principalId"`
+		ObjectType    string   `json:"objectType"`
+		DatabaseName  string   `json:"databaseName"`
+		ObjectName    string   `json:"objectName"`
+		Columns       []string `json:"columns"`
+		Privileges    []string `json:"privileges"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusBadRequest, 400, "参数错误: "+err.Error())
+		return
+	}
+
+	operatorID := middleware.GetStr(c, "userId")
+	operatorName := middleware.GetStr(c, "username")
+
+	if err := h.authSvc.GrantObjectPermission(struct {
+		DatasourceID  string
+		PrincipalType string
+		PrincipalID   string
+		ObjectType    string
+		DatabaseName  string
+		ObjectName    string
+		Columns       []string
+		Privileges    []string
+	}{req.DatasourceID, req.PrincipalType, req.PrincipalID, req.ObjectType, req.DatabaseName, req.ObjectName, req.Columns, req.Privileges}, operatorID, operatorName); err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *InternalAuthHandler) RevokeObjectPermission(c *gin.Context) {
+	id := c.Param("id")
+	operatorID := middleware.GetStr(c, "userId")
+	operatorName := middleware.GetStr(c, "username")
+
+	if err := h.authSvc.RevokeObjectPermission(id, operatorID, operatorName); err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, nil)
+}
+
+func (h *InternalAuthHandler) GetObjectPrivileges(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	objectType := c.Query("objectType")
+	privs := h.authSvc.GetObjectPrivileges(datasourceID, objectType)
+	middleware.OK(c, privs)
+}
+
+func (h *InternalAuthHandler) ListDatabases(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	dbs, err := h.authSvc.ListDatabases(datasourceID)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, dbs)
+}
+
+func (h *InternalAuthHandler) ListObjects(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	dbName := c.Query("dbName")
+	objectType := c.Query("objectType")
+	objs, err := h.authSvc.ListObjects(datasourceID, dbName, objectType)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, objs)
+}
+
+func (h *InternalAuthHandler) ListColumns(c *gin.Context) {
+	datasourceID := c.Query("datasourceId")
+	dbName := c.Query("dbName")
+	tableName := c.Query("tableName")
+	cols, err := h.authSvc.ListColumns(datasourceID, dbName, tableName)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, cols)
+}
+
+func (h *InternalAuthHandler) SaveUserPermissions(c *gin.Context) {
+	var req struct {
+		DatasourceID      string                  `json:"datasourceId"`
+		UserID            string                  `json:"userId"`
+		ObjectPermissions []struct {
+			ObjectType    string   `json:"objectType"`
+			PrivilegeType string   `json:"privilegeType"`
+			DatabaseName  string   `json:"databaseName"`
+			TableName     string   `json:"tableName"`
+			Columns       []string `json:"columns"`
+		} `json:"objectPermissions"`
+		SystemPermissions []string `json:"systemPermissions"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		middleware.Fail(c, http.StatusBadRequest, 400, "参数错误: "+err.Error())
+		return
+	}
+
+	operatorID := middleware.GetStr(c, "userId")
+	operatorName := middleware.GetStr(c, "username")
+
+	objectPerms := make([]service.ObjectPermissionRule, len(req.ObjectPermissions))
+	for i, op := range req.ObjectPermissions {
+		objectPerms[i] = service.ObjectPermissionRule{
+			ObjectType:    op.ObjectType,
+			PrivilegeType: op.PrivilegeType,
+			DatabaseName:  op.DatabaseName,
+			TableName:     op.TableName,
+			Columns:       op.Columns,
+		}
+	}
+
+	saveReq := service.SaveUserPermissionRequest{
+		DatasourceID:      req.DatasourceID,
+		UserID:            req.UserID,
+		ObjectPermissions: objectPerms,
+		SystemPermissions: req.SystemPermissions,
+	}
+
+	if err := h.authSvc.SaveUserPermissions(saveReq, operatorID, operatorName); err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, 500, err.Error())
+		return
+	}
+	middleware.OK(c, nil)
 }

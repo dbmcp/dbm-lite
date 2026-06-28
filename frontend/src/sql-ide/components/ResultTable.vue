@@ -6,8 +6,8 @@
     </div>
     <div v-else class="rt-result-list">
       <div v-for="(r, idx) in data" :key="'r-' + idx" class="rt-result-item">
-        <div class="rt-result-header" @click="toggleResult(idx)">
-          <span class="rt-result-arrow" :class="{ expanded: expandedResults[idx] }">▶</span>
+        <div class="rt-result-header" @click="showExpandArrow && toggleResult(idx)">
+          <span v-if="showExpandArrow" class="rt-result-arrow" :class="{ expanded: expandedResults[idx] !== false }">▶</span>
           <span class="rt-result-title">{{ r.title || (title || '结果') + ' ' + (idx + 1) }}</span>
           <span v-if="r.affectedRows !== undefined && r.affectedRows !== null && showAffectedRows" class="rt-result-affected">影响 {{ r.affectedRows }} 行</span>
           <span v-if="safeRows(r).length > 0 && showRowCount" class="rt-result-rows">{{ safeRows(r).length }} 行</span>
@@ -28,7 +28,7 @@
             <button v-if="showRollbackButton" class="rt-action-btn rt-action-btn-rollback" @click.stop="rollbackChanges(r, idx)" :disabled="!hasChanges(r, idx) || isSubmitting[idx]" title="放弃更改">
               <span class="rt-action-icon">✕</span>
             </button>
-            <span v-if="(showSubmitButton || showRollbackButton) && (showRefreshButton || showExportButton || showStopButton)" class="rt-action-separator"></span>
+            <span v-if="(showSubmitButton || showRollbackButton) && (showRefreshButton || showExportButton || showStopButton || showColumnPicker)" class="rt-action-separator"></span>
             <button v-if="showRefreshButton" class="rt-action-btn rt-action-btn-refresh" @click.stop="refreshResult(r, idx)" :disabled="isSubmitting[idx]" title="刷新">
               <span class="rt-action-icon">⟳</span>
             </button>
@@ -37,6 +37,9 @@
             </button>
             <button v-if="showStopButton" class="rt-action-btn rt-action-btn-stop" @click.stop="handleStop(r, idx)" :disabled="!isSubmitting[idx]" title="停止">
               <span class="rt-action-icon">■</span>
+            </button>
+            <button v-if="showColumnPicker && safeColumns(r).length > 0" class="rt-action-btn rt-action-btn-columns" @click.stop="toggleColumnPicker(r.id)" title="列选择">
+              <span class="rt-action-icon">☰</span>
             </button>
           </div>
           
@@ -47,10 +50,22 @@
             <div class="rt-export-item" @click="exportData(r, idx, 'sql', true)">导出选中行 (SQL)</div>
           </div>
           
+          <div v-if="showColumnPicker" class="rt-column-menu" v-show="columnPickerOpen === r.id">
+            <div 
+              v-for="(col, ci) in safeColumns(r)" 
+              :key="'col-' + ci" 
+              class="rt-column-item"
+              @click="toggleColumn(r.id, col)"
+            >
+              <span :class="{ 'checked': isColumnVisible(r.id, col) }">{{ isColumnVisible(r.id, col) ? '✓' : '○' }}</span>
+              <span>{{ props.columnLabels?.[col] || col }}</span>
+            </div>
+          </div>
+          
           <span v-if="showCloseButton" class="rt-result-close" @click.stop="emit('close-result', idx)">✕</span>
         </div>
         
-        <div v-if="expandedResults[idx]" class="rt-result-body">
+        <div v-if="!showExpandArrow || expandedResults[idx] !== false" class="rt-result-body">
           <div v-if="r.success === false" class="rt-error-box">
             <span class="rt-error-title">错误信息</span>
             <div class="rt-error-text">{{ r.message || r.error || '未知错误' }}</div>
@@ -65,8 +80,8 @@
                         <input type="checkbox" @change="toggleSelectAll(r, idx)" :checked="isAllSelected(r, idx)" />
                       </th>
                       <th class="rt-row-num-col">#</th>
-                      <th v-for="(col, ci) in safeColumns(r)" :key="'h-' + ci" class="rt-col-header">
-                        <div class="rt-col-name">{{ col }}</div>
+                      <th v-for="(col, ci) in visibleColumns(r)" :key="'h-' + ci" class="rt-col-header">
+                        <div class="rt-col-name">{{ props.columnLabels?.[col] || col }}</div>
                       </th>
                     </tr>
                   </thead>
@@ -77,10 +92,11 @@
                       </td>
                       <td class="rt-row-num-col">{{ ((currentPages[idx] || 1) - 1) * (pageSizes[idx] || 50) + ri + 1 }}</td>
                       <td 
-                        v-for="(col, ci) in safeColumns(r)" 
+                        v-for="(col, ci) in visibleColumns(r)" 
                         :key="'c-' + ci" 
                         :title="formatCell(row, col)"
                         @dblclick="showEdit && startEdit(r, idx, ri, col)"
+                        @click="emit('cell-click', row, col, $event)"
                         class="rt-cell"
                       >
                         <template v-if="editingCell[r.id + '-' + ri] === col">
@@ -93,6 +109,9 @@
                             class="rt-edit-input"
                           />
                         </template>
+                        <template v-else-if="props.cellRenderer">
+                          <div v-html="props.cellRenderer(row, col)"></div>
+                        </template>
                         <template v-else>
                           <span :class="{ 'rt-null': isNullValue(row[col]) }">{{ formatCell(row, col) }}</span>
                         </template>
@@ -103,12 +122,12 @@
               </div>
             </div>
             
-            <div v-show="viewMode === 'shell'" class="rt-shell-wrap">
-              <pre class="rt-shell-output">{{ formatShellOutput(r) }}</pre>
-            </div>
+            <div v-if="showShellView" v-show="viewMode === 'shell'" class="rt-shell-wrap">
+            <pre class="rt-shell-output">{{ formatShellOutput(r) }}</pre>
+          </div>
             
             <div v-if="showPagination" class="rt-status-bar">
-              <div class="rt-status-left">
+              <div class="rt-status-left" v-if="showSql">
                 <span class="rt-status-sql">{{ r.sql || 'No SQL' }}</span>
               </div>
               <div class="rt-status-center">
@@ -151,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 
 interface ResultData {
   id?: string
@@ -179,6 +198,7 @@ const props = withDefaults(defineProps<{
   showExportButton?: boolean
   showStopButton?: boolean
   showCloseButton?: boolean
+  showColumnPicker?: boolean
   showCheckbox?: boolean
   showEdit?: boolean
   showPagination?: boolean
@@ -186,6 +206,12 @@ const props = withDefaults(defineProps<{
   showRowCount?: boolean
   showDuration?: boolean
   showStatus?: boolean
+  showExpandArrow?: boolean
+  showShellView?: boolean
+  showSql?: boolean
+  cellRenderer?: (row: any, colKey: string) => string
+  columnLabels?: Record<string, string>
+  expandedByDefault?: boolean
 }>(), {
   data: () => [],
   title: '结果',
@@ -199,18 +225,23 @@ const props = withDefaults(defineProps<{
   showExportButton: true,
   showStopButton: true,
   showCloseButton: true,
+  showColumnPicker: true,
   showCheckbox: true,
   showEdit: true,
   showPagination: true,
   showAffectedRows: true,
   showRowCount: true,
   showDuration: true,
-  showStatus: true
+  showStatus: true,
+  showExpandArrow: true,
+  showShellView: true,
+  showSql: true
 })
 
 const emit = defineEmits<{
   (e: 'close-result', idx: number): void
   (e: 'refresh-single', rId: string, idx: number, sql: string): void
+  (e: 'cell-click', row: any, colKey: string, event: Event): void
 }>()
 
 const viewMode = ref<'table' | 'shell'>('table')
@@ -220,19 +251,27 @@ const expandedResults = reactive<Record<number, boolean>>({})
 const lastUpdated = reactive<Record<number, string>>({})
 const isSubmitting = reactive<Record<number, boolean>>({})
 const exportMenuOpen = ref<string | null>(null)
+const columnPickerOpen = ref<string | null>(null)
 const editingCell = reactive<Record<string, string>>({})
 const selectedRows = reactive<Record<string, boolean>>({})
 const editValue = ref('')
 const modifiedRows = reactive<Record<string, any>>({})
 const deletedRows = reactive<Record<string, any[]>>({})
 const originalRows = reactive<Record<string, any[]>>({})
+const hiddenColumns = reactive<Record<string, Set<string>>>({})
 
-watch(() => props.data?.length, () => {
+watch(() => props.data, () => {
   for (let idx = 0; idx < (props.data?.length || 0); idx++) {
-    if (expandedResults[idx] === undefined) expandedResults[idx] = true
+    expandedResults[idx] = props.expandedByDefault !== false
     if (currentPages[idx] === undefined) currentPages[idx] = 1
     if (pageSizes[idx] === undefined) pageSizes[idx] = 50
     lastUpdated[idx] = new Date().toLocaleString('zh-CN')
+  }
+}, { deep: true })
+
+onMounted(() => {
+  for (let idx = 0; idx < (props.data?.length || 0); idx++) {
+    expandedResults[idx] = props.expandedByDefault !== false
   }
 })
 
@@ -244,7 +283,63 @@ function safeRows(r: any): any[] {
 function safeColumns(r: any): string[] {
   const rows = safeRows(r)
   if (rows.length === 0) return []
-  return Object.keys(rows[0])
+  
+  const dataColumns = Object.keys(rows[0])
+  
+  if (props.columnLabels) {
+    const orderedColumns: string[] = []
+    const labelKeys = Object.keys(props.columnLabels)
+    
+    for (const key of labelKeys) {
+      if (dataColumns.includes(key)) {
+        orderedColumns.push(key)
+      }
+    }
+    
+    for (const col of dataColumns) {
+      if (!orderedColumns.includes(col)) {
+        orderedColumns.push(col)
+      }
+    }
+    
+    return orderedColumns
+  }
+  
+  return dataColumns
+}
+
+function visibleColumns(r: any): string[] {
+  const columns = safeColumns(r)
+  const resultId = r.id || 'default'
+  if (!hiddenColumns[resultId]) {
+    hiddenColumns[resultId] = new Set()
+  }
+  return columns.filter(col => !hiddenColumns[resultId].has(col))
+}
+
+function toggleColumnPicker(id: string | undefined) {
+  if (!id) return
+  columnPickerOpen.value = columnPickerOpen.value === id ? null : id
+}
+
+function isColumnVisible(resultId: string | undefined, col: string): boolean {
+  if (!resultId) return true
+  if (!hiddenColumns[resultId]) {
+    hiddenColumns[resultId] = new Set()
+  }
+  return !hiddenColumns[resultId].has(col)
+}
+
+function toggleColumn(resultId: string | undefined, col: string) {
+  if (!resultId) return
+  if (!hiddenColumns[resultId]) {
+    hiddenColumns[resultId] = new Set()
+  }
+  if (hiddenColumns[resultId].has(col)) {
+    hiddenColumns[resultId].delete(col)
+  } else {
+    hiddenColumns[resultId].add(col)
+  }
 }
 
 function formatCell(row: any, col: string): string {
@@ -526,6 +621,9 @@ function formatShellOutput(r: any): string {
 
 .rt-result-item {
   border-bottom: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .rt-result-header {
@@ -553,8 +651,9 @@ function formatShellOutput(r: any): string {
 }
 
 .rt-result-title {
-  font-weight: 500;
-  color: #212529;
+  font-weight: 600;
+  color: #303133;
+  font-size: 14px;
 }
 
 .rt-result-affected, .rt-result-rows, .rt-result-dura {
@@ -622,6 +721,7 @@ function formatShellOutput(r: any): string {
 .rt-action-btn-refresh .rt-action-icon { color: #1976d2; }
 .rt-action-btn-export .rt-action-icon { color: #6c757d; }
 .rt-action-btn-stop .rt-action-icon { color: #dc3545; }
+.rt-action-btn-columns .rt-action-icon { color: #6c757d; }
 
 .rt-action-separator {
   width: 1px;
@@ -653,6 +753,43 @@ function formatShellOutput(r: any): string {
   background: #f8f9fa;
 }
 
+.rt-column-menu {
+  position: absolute;
+  right: 32px;
+  top: 40px;
+  background: #ffffff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.rt-column-item {
+  padding: 6px 16px;
+  font-size: 12px;
+  color: #495057;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rt-column-item:hover {
+  background: #f8f9fa;
+}
+
+.rt-column-item span:first-child {
+  font-size: 10px;
+  color: #6c757d;
+}
+
+.rt-column-item span:first-child.checked {
+  color: #28a745;
+}
+
 .rt-result-close {
   margin-left: 8px;
   font-size: 14px;
@@ -668,6 +805,10 @@ function formatShellOutput(r: any): string {
 
 .rt-result-body {
   background: #ffffff;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rt-error-box {
@@ -691,8 +832,9 @@ function formatShellOutput(r: any): string {
 }
 
 .rt-table-container {
-  max-height: 400px;
+  flex: 1;
   overflow: auto;
+  min-height: 0;
 }
 
 .rt-table-wrapper {
@@ -702,28 +844,35 @@ function formatShellOutput(r: any): string {
 .rt-data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .rt-data-table th,
 .rt-data-table td {
-  padding: 6px 8px;
+  padding: 10px 16px;
   text-align: left;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid #e8e8e8;
+  font-size: 14px;
 }
 
 .rt-data-table th {
-  background: #f8f9fa;
-  font-weight: 500;
-  color: #495057;
+  background: #fafafa;
+  font-weight: 600;
+  color: #606266;
   white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 1;
+  font-size: 14px;
+}
+
+.rt-data-table tbody tr {
+  height: 40px;
 }
 
 .rt-data-table tbody tr:hover {
-  background: #f8f9fa;
+  background: #f5f7fa;
 }
 
 .rt-data-table tbody tr.odd {
@@ -803,16 +952,18 @@ function formatShellOutput(r: any): string {
 .rt-status-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 8px 12px;
   background: #f8f9fa;
   border-top: 1px solid #e9ecef;
   font-size: 12px;
+  gap: 12px;
 }
 
 .rt-status-left {
   flex: 1;
   overflow: hidden;
+  text-align: left;
 }
 
 .rt-status-sql {

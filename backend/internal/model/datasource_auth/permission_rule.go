@@ -13,6 +13,8 @@ type DatasourcePermissionRule struct {
 	Table           string    `gorm:"column:table_name;size:128" json:"tableName"`
 	Columns         string    `gorm:"column:columns;type:text" json:"columns"`
 	Enabled         bool      `gorm:"column:enabled;default:true" json:"enabled"`
+	PrivilegeCategory string `gorm:"column:privilege_category;size:32;default:'object'" json:"privilegeCategory"`
+	SystemPrivileges string `gorm:"column:system_privileges;type:text" json:"systemPrivileges"`
 	CreatedAt       time.Time `gorm:"column:created_at" json:"createdAt"`
 }
 
@@ -28,9 +30,15 @@ const (
 	PrivilegeTypeDML      = "dml"
 	PrivilegeTypeDDL      = "ddl"
 
-	ObjectLevelDatabase = "database"
-	ObjectLevelTable    = "table"
-	ObjectLevelColumn   = "column"
-	ObjectLevelView     = "view"
-	ObjectLevelTrigger  = "trigger"
+	ObjectLevelDatabase  = "database"
+	ObjectLevelTable     = "table"
+	ObjectLevelColumn    = "column"
+	ObjectLevelView      = "view"
+	ObjectLevelTrigger   = "trigger"
+	ObjectLevelProcedure = "procedure"
+	ObjectLevelFunction  = "function"
+	ObjectLevelEvent     = "event"
+
+	PrivilegeCategoryObject = "object"
+	PrivilegeCategorySystem = "system"
 )

@@ -498,6 +498,8 @@ func main() {
 					usersAPI.POST("/:id/roles", internalAuthH.AssignRoles)
 					usersAPI.GET("/:id/permissions", internalAuthH.GetUserPermissions)
 					usersAPI.GET("/:id/grants", internalAuthH.GetUserGrants)
+					usersAPI.GET("/:id/effective-grants", internalAuthH.GetUserEffectiveGrants)
+					internalAuth.GET("/user/permission/detail", internalAuthH.GetUserPermissionDetail)
 				}
 				rolesAPI := internalAuth.Group("/roles")
 				{
@@ -520,7 +522,24 @@ func main() {
 					permAPI.GET("/user", internalAuthH.GetUserPermissions)
 					permAPI.POST("/check-sql", internalAuthH.CheckSQLPermission)
 				}
+				systemPermAPI := internalAuth.Group("/system-privileges")
+				{
+					systemPermAPI.GET("", internalAuthH.GetSystemPrivileges)
+					systemPermAPI.POST("", internalAuthH.GrantSystemPrivileges)
+					systemPermAPI.DELETE("/:id", internalAuthH.RevokeSystemPrivileges)
+				}
+				objectPermAPI := internalAuth.Group("/object-permissions")
+				{
+					objectPermAPI.POST("", internalAuthH.GrantObjectPermission)
+					objectPermAPI.DELETE("/:id", internalAuthH.RevokeObjectPermission)
+				}
+				internalAuth.GET("/object-privileges", internalAuthH.GetObjectPrivileges)
+				internalAuth.GET("/databases", internalAuthH.ListDatabases)
+				internalAuth.GET("/objects", internalAuthH.ListObjects)
+				internalAuth.GET("/columns", internalAuthH.ListColumns)
+				internalAuth.GET("/users/:id/system-privileges", internalAuthH.GetUserSystemPrivileges)
 				internalAuth.GET("/audit", internalAuthH.ListAuditLogs)
+				internalAuth.POST("/user/permission/save", internalAuthH.SaveUserPermissions)
 			}
 		}
 	}

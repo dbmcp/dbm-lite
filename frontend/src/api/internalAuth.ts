@@ -34,6 +34,14 @@ export interface DatasourcePermissionRule {
   columns: string
   enabled: boolean
   createdAt: string
+  privilegeCategory: string
+  systemPrivileges: string
+}
+
+export interface SystemPrivilege {
+  name: string
+  description: string
+  category: string
 }
 
 export interface DatasourceAuthAudit {
@@ -204,6 +212,7 @@ export function listPermissionRules(params: {
   principalId?: string
   privilegeType?: string
   objectLevel?: string
+  privilegeCategory?: string
   page?: number
   pageSize?: number
 }) {
@@ -286,6 +295,13 @@ export function getUserGrants(userId: string) {
   })
 }
 
+export function getUserEffectiveGrants(userId: string) {
+  return request<{ grants: any[] }>({
+    url: `/datasource-internal-auth/users/${userId}/effective-grants`,
+    method: 'get'
+  })
+}
+
 export function getRoleGrants(roleId: string) {
   return request<{ grants: string }>({
     url: `/datasource-internal-auth/roles/${roleId}/grants`,
@@ -309,11 +325,145 @@ export function listAuditLogs(params: {
   datasourceId?: string
   operator?: string
   operType?: string
+  result?: string
   page?: number
   pageSize?: number
 }) {
   return request<{ list: DatasourceAuthAudit[]; total: number; current: number; pageSize: number }>({
     url: '/datasource-internal-auth/audit',
+    method: 'get',
+    params
+  })
+}
+
+export function getSystemPrivileges(datasourceId: string) {
+  return request<SystemPrivilege[]>({
+    url: '/datasource-internal-auth/system-privileges',
+    method: 'get',
+    params: { datasourceId }
+  })
+}
+
+export function grantSystemPrivileges(data: {
+  datasourceId: string
+  principalType: string
+  principalId: string
+  systemPrivileges: string[]
+}) {
+  return request({
+    url: '/datasource-internal-auth/system-privileges',
+    method: 'post',
+    data
+  })
+}
+
+export function revokeSystemPrivileges(id: string) {
+  return request({
+    url: `/datasource-internal-auth/system-privileges/${id}`,
+    method: 'delete'
+  })
+}
+
+export function getUserSystemPrivileges(userId: string) {
+  return request<string[]>({
+    url: `/datasource-internal-auth/users/${userId}/system-privileges`,
+    method: 'get'
+  })
+}
+
+export function grantObjectPermission(data: {
+  datasourceId: string
+  principalType: string
+  principalId: string
+  objectType: string
+  databaseName: string
+  objectName: string
+  columns?: string[]
+  privileges: string[]
+}) {
+  return request({
+    url: '/datasource-internal-auth/object-permissions',
+    method: 'post',
+    data
+  })
+}
+
+export function revokeObjectPermission(id: string) {
+  return request({
+    url: `/datasource-internal-auth/object-permissions/${id}`,
+    method: 'delete'
+  })
+}
+
+export function getObjectPrivileges(datasourceId: string, objectType: string) {
+  return request<string[]>({
+    url: '/datasource-internal-auth/object-privileges',
+    method: 'get',
+    params: { datasourceId, objectType }
+  })
+}
+
+export function listDatabases(datasourceId: string) {
+  return request<string[]>({
+    url: '/datasource-internal-auth/databases',
+    method: 'get',
+    params: { datasourceId }
+  })
+}
+
+export function listObjects(datasourceId: string, dbName: string, objectType: string) {
+  return request<string[]>({
+    url: '/datasource-internal-auth/objects',
+    method: 'get',
+    params: { datasourceId, dbName, objectType }
+  })
+}
+
+export function listColumns(datasourceId: string, dbName: string, tableName: string) {
+  return request<string[]>({
+    url: '/datasource-internal-auth/columns',
+    method: 'get',
+    params: { datasourceId, dbName, tableName }
+  })
+}
+
+export function saveUserPermissions(data: {
+  datasourceId: string
+  userId: string
+  objectPermissions: Array<{
+    objectType: string
+    privilegeType: string
+    databaseName: string
+    tableName: string
+    columns: string[]
+  }>
+  systemPermissions: string[]
+}) {
+  return request({
+    url: '/datasource-internal-auth/user/permission/save',
+    method: 'post',
+    data
+  })
+}
+
+export function getUserPermissionDetail(params: {
+  datasourceId: string
+  userId: string
+}) {
+  return request<{
+    user: DatasourceInternalUser
+    objectPermissions: Array<{
+      id: string
+      objectType: string
+      privilegeType: string
+      databaseName: string
+      tableName: string
+      columns: string
+      createdAt: string
+    }>
+    systemPermissions: string[]
+  }>({
+    url: '/datasource-internal-auth/user/permission/detail',
     method: 'get',
     params
   })

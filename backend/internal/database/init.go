@@ -242,6 +242,10 @@ func initPlatformDB() error {
 		}
 	}
 
+	if err := safeAutoMigrate(); err != nil {
+		return fmt.Errorf("auto migrate failed: %w", err)
+	}
+
 	if err := seedData(); err != nil {
 		return fmt.Errorf("seed data failed: %w", err)
 	}

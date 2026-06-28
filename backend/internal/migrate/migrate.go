@@ -116,7 +116,20 @@ func RunAutoMigrate(db *gorm.DB) error {
 	}
 	
 	if latestVersion == CurrentDBVersion {
-		fmt.Println("[migrate] Database schema is up to date (version:", CurrentDBVersion, "), skipping migration")
+		fmt.Println("[migrate] Database schema is at version", CurrentDBVersion, ", checking for missing columns...")
+		models := allModels()
+		for _, m := range models {
+			if err := db.AutoMigrate(m); err != nil {
+				errStr := err.Error()
+				if strings.Contains(errStr, "1091") || strings.Contains(errStr, "1061") ||
+					strings.Contains(errStr, "Duplicate key") || strings.Contains(errStr, "Duplicate entry") ||
+					strings.Contains(errStr, "already exists") || strings.Contains(strings.ToLower(errStr), "duplicate") {
+					continue
+				}
+				fmt.Printf("[migrate] Table migration warning: %T: %v (continuing)\n", m, err)
+			}
+		}
+		fmt.Println("[migrate] Schema check completed")
 		return nil
 	}
 	
